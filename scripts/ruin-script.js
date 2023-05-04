@@ -21,7 +21,7 @@ var resourceWood = 0;
 var resourceFood = 0;
 var resourceGold = 0;
 var resourceCultists = 0;
-var commandList = ["pray", "study", "eat", "light"];
+var commandList = ["pray", "study", "eat", "light", "take", "examine"];
 
 
 
@@ -43,9 +43,15 @@ function removePunctuation(string) {
         .join('');
 }
 
+function firstWord(string)
+{
+    return string.split(" ")[0];
+}
+
 function parseText() {
     var currentString = document.getElementById("input_textbox").value;
-    var command = removePunctuation(currentString.toLowerCase());
+    var cleanedString = removePunctuation(currentString.toLowerCase());
+    var command = firstWord(cleanedString);
     var keyword_index = commandList.indexOf(command);
     if (keyword_index > -1) {
         textCommand(command);
@@ -157,7 +163,8 @@ var loadBarEvent = new CustomEvent("loadBarEvent");
 
 function harvestEnergyBar() {
     resourceLight += 1;
-    updateTimeline("You have " + resourceLight + " light energy.");
+    //updateTimeline("You have " + resourceLight + " light energy.");
+    updateTimeline("You gained 1 light energy.");
     updateResources();
 }
 
