@@ -5,6 +5,7 @@
     --color-dark-alt: #18252C;
     --color-dark-alt2: #2E3B42;
     --color-dark-alt3: #40494F;
+    --color-dark-extra: #0E161A;
     --color-light: #EFECCA;
     --color-light-alt: #DFD6A7;
     --color-accent: #F8C466;
@@ -41,6 +42,10 @@ body {
     font-family: "kinesis-pro-3", serif;
 }
 
+.titlediv {
+    padding-top: 50px;
+}
+
 h1 {
     font-family: "yrsa", serif;
     font-weight: 400;
@@ -58,10 +63,9 @@ h1 {
     width: 50%;
     min-width:800px;
     max-width:1200px;
-    padding-left:50px;
-    padding-right:50px;
+    padding-left:100px;
+    padding-right:100px;
     margin:auto;
-    margin-top:50px;
 }
 
 .button-area {

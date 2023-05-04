@@ -13,6 +13,7 @@ var resourceDisplayCultists = document.getElementById("num-resource-cultists");
 var energyBarLoadTime = 5;
 
 var currentTextString = "";
+var allowInput = true;
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 var resourceLight = 0;
 var resourceStone = 0;
@@ -70,6 +71,48 @@ function textCommand(cmd) {
     }
 }
 
+function delayedUpdateTimeline(string, delay=1, style='regular') {
+    //delay is counted in cycles of ... (each cycle is 1.5 seconds)
+    allowInput = false;
+    
+    timeline.innerHTML = (timeline.innerHTML + "<p class=\"regular\" id=\"ellipsis\">.</p>");
+    var ellipsisHTML = document.getElementById("ellipsis");
+    var ellipsisInterval = setInterval(ellipsisUpdate, 500);
+    var ellipsisCount = 0;
+
+    function ellipsisUpdate()
+    {
+        if(ellipsisCount>=delay)
+        {
+            ellipsisHTML.remove();
+            //ellipsisHTML.innerHTML = string;
+            //ellipsisHTML.removeAttribute("id");
+            updateTimeline(string, style);
+            clearInterval(ellipsisInterval);
+            allowInput = true;
+        }
+
+        if(ellipsisHTML.innerHTML == "")
+        {
+            ellipsisHTML.innerHTML = ".";
+        }
+        else if(ellipsisHTML.innerHTML == ".")
+        {
+            ellipsisHTML.innerHTML = "..";
+        }
+        else if(ellipsisHTML.innerHTML == "..")
+        {
+            ellipsisHTML.innerHTML = "...";
+            ellipsisCount += 1;
+        }
+        else if(ellipsisHTML.innerHTML == "...")
+        {
+            ellipsisHTML.innerHTML = ".";
+        }
+
+    }
+}
+
 
 
 
@@ -82,6 +125,8 @@ function scrollToBottom(container) {
     container.scrollTop = container.scrollHeight;
 }
 
+
+//Fade text is done via a css trick - the javascript will remove the fade-text class after a set interval, however, since the paragraph style has a transition setting for opacity, the text will fade in with a delay.
 function fadeText() {
     // to optimise.
     text = document.getElementsByClassName("fade-text");
@@ -95,7 +140,7 @@ function fadeText() {
 
 inputbox.addEventListener("keyup", function (event) {
     event.preventDefault();
-    if (event.keyCode === 13) {
+    if (event.code === "Enter" && allowInput == true) {
         parseText();
         //updateTimeline(currentTextString, "regular");
         inputbox.value = "";
@@ -163,6 +208,10 @@ energybar.addEventListener("click", function () {
 });
 
 
+//STORY FUNCTIONS
+
+
+
 //RESOURCE FUNCTIONS
 function updateResources()
 {
@@ -180,3 +229,4 @@ function updateResources()
 energybar.autoload = false;
 inputbox.focus();
 updateResources();
+delayedUpdateTimeline("You walk through the doorway of the ruined temple alone. There's a <strong>mysterious cube</strong> lying on the pedestal.", 2);
