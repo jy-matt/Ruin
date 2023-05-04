@@ -1,0 +1,218 @@
+@import url("https://use.typekit.net/lim3rtb.css");
+
+:root {
+    --color-dark: #162128;
+    --color-dark-alt: #18252C;
+    --color-dark-alt2: #2E3B42;
+    --color-dark-alt3: #40494F;
+    --color-light: #EFECCA;
+    --color-light-alt: #DFD6A7;
+    --color-accent: #F8C466;
+    --color-accent2: #A9CBB7;
+}
+
+::selection {
+    background: var(--color-accent2);
+}
+
+/* Scrollbar styling */
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-dark); 
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-dark-alt); 
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-dark-alt2); 
+}
+
+body {
+    background-color: var(--color-dark);
+    color: var(--color-light);
+    font-family: "kinesis-pro-3", serif;
+}
+
+h1 {
+    font-family: "yrsa", serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 60px;
+    color: var(--color-accent);
+    text-align:left;
+}
+
+.maindiv {
+    font-family: "kinesis-pro-3", serif;
+    font-weight: 300;
+    font-style: normal;
+    font-size: 20px;
+    width: 50%;
+    min-width:800px;
+    max-width:1200px;
+    padding-left:50px;
+    padding-right:50px;
+    margin:auto;
+    margin-top:50px;
+}
+
+.button-area {
+    height: 240px;
+    width: calc(100% - 12px);
+    padding-top: 12px;
+    padding-left: 6px;
+    padding-right: 6px;
+    margin-bottom: 12px;
+}
+
+.input-textbox {
+    background-color: var(--color-dark);
+    border: none;
+    border-bottom: 1px solid var(--color-dark-alt2);
+    font: 300 20px "kinesis-pro-3", serif;
+    font-style: normal;
+    color: var(--color-light);
+    height: auto;
+    width: calc(100% - 12px);
+    padding-top: 12px;
+    padding-left: 6px;
+    padding-right: 6px;
+    margin-bottom: 12px;
+    outline: none;
+}
+
+.timeline {
+    /* display: table-cell;
+    table-layout: fixed;
+    vertical-align: bottom; */
+    overflow: scroll;
+    overflow-x: hidden;
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    left: 0px;
+    max-height: 90%;
+    padding-bottom: 12px;
+    padding-top: 12px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+.timeline-outer {
+    height: 400px;
+    position: relative;
+}
+
+.timeline-overlay {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 10;
+    padding-top: 12px;
+    pointer-events: none;
+    background-image: linear-gradient( var(--color-dark) 5%, rgba(0,0,0,0) 40% );
+}
+
+/* Timeline text styles. */
+
+.timeline p {
+    margin: 0px;
+    margin-block-end: 0.5em;
+    opacity: 1;
+    transition: opacity 500ms;
+}
+
+.timeline .fade-text {
+    opacity: 0;
+}
+
+.timeline .regular {
+    font-style: normal;
+}
+
+.timeline .italic {
+    font-style: italic;
+}
+
+.timeline .bold {
+    font-weight: 600;
+}
+
+.timeline .text-light {
+    opacity: 0.8;
+}
+
+.timeline .text-god {
+    font-family: "alexander-quill", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 18px;
+    color: var(--color-light-alt);
+}
+
+.timeline .text-keyword-user {
+    font-weight: 700;
+    color: var(--color-accent2);
+}
+
+.timeline .text-keyword {
+    font-weight: 700;
+    color: var(--color-accent2);
+}
+
+.timeline strong {
+    font-weight: 700;
+    color: var(--color-accent2);
+}
+
+.fade {
+    opacity: 0;
+}
+
+/* UI Styling */
+
+.nospace {
+    padding: 0px;
+    margin: 0px;
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.progress-bar-container {
+    width: 120px;
+    height: 120px;
+    border: 0px solid var(--color-light-alt);
+    background-color: var(--color-dark);
+    margin: auto;
+    margin-top: 24px;
+}
+
+.progress-bar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background-color: var(--color-light-alt);
+    color: var(--color-dark);
+    box-shadow: 0px 0px 0px var(--color-light-alt);
+    transition: box-shadow 200ms;
+    opacity: 0;
+}
+
+.progress-bar-inner-text {
+    color: var(--color-light);
+    margin: auto;
+    text-align: center;
+    flex: 0 0;
+}
