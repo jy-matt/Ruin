@@ -4,9 +4,22 @@ var inputbox = document.getElementById("input_textbox");
 var timeline = document.getElementById("timeline");
 var energybar = document.getElementById("bar_energy");
 
+var resourceDisplayLight = document.getElementById("num-resource-light");
+var resourceDisplayWood = document.getElementById("num-resource-wood");
+var resourceDisplayStone = document.getElementById("num-resource-stone");
+var resourceDisplayFood = document.getElementById("num-resource-food");
+var resourceDisplayCultists = document.getElementById("num-resource-cultists");
+
+var energyBarLoadTime = 5;
+
 var currentTextString = "";
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
-var dummyResource = 0;
+var resourceLight = 0;
+var resourceStone = 0;
+var resourceWood = 0;
+var resourceFood = 0;
+var resourceGold = 0;
+var resourceCultists = 0;
 var commandList = ["pray", "study", "eat", "light"];
 
 
@@ -52,7 +65,7 @@ function updateTimeline(string, style = "regular") {
 function textCommand(cmd) {
     if (cmd == "light") {
         if (energybar.autoload == false) {
-            autoLoad(energybar, 30);
+            loadBar(energybar, energyBarLoadTime);
         }
     }
 }
@@ -98,8 +111,9 @@ var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
 function harvestEnergyBar() {
-    dummyResource += 1;
-    updateTimeline("You have " + dummyResource + " light energy.");
+    resourceLight += 1;
+    updateTimeline("You have " + resourceLight + " light energy.");
+    updateResources();
 }
 
 function loadBar(bar, seconds) {
@@ -144,11 +158,20 @@ function autoLoad(bar, seconds) {
 
 energybar.addEventListener("click", function () {
     if (energybar.autoload == false) {
-        autoLoad(energybar, 30);
+        loadBar(energybar, energyBarLoadTime);
     }
 });
 
 
+//RESOURCE FUNCTIONS
+function updateResources()
+{
+    resourceDisplayLight.innerHTML = resourceLight;
+    resourceDisplayWood.innerHTML = resourceWood;
+    resourceDisplayStone.innerHTML = resourceStone;
+    resourceDisplayFood.innerHTML = resourceFood;
+    resourceDisplayCultists.innerHTML = resourceCultists;
+}
 
 
 //INITIALISATION
@@ -156,3 +179,4 @@ energybar.addEventListener("click", function () {
 //loadBar(energybar, 0);
 energybar.autoload = false;
 inputbox.focus();
+updateResources();
