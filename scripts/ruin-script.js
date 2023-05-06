@@ -1,3 +1,5 @@
+/// <reference path="ruin-buildings.js" />
+
 //SET INITIAL VARIABLES
 //--------------------------------
 var inputbox = document.getElementById("input_textbox");
@@ -15,18 +17,45 @@ var energyBarLoadTime = 5;
 var currentTextString = "";
 var allowInput = true;
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+var commandList = ["pray", "study", "eat", "light", "take", "examine", "build"];
+
 var resourceLight = 0;
 var resourceStone = 0;
 var resourceWood = 0;
 var resourceFood = 0;
 var resourceGold = 0;
 var resourceCultists = 0;
-var commandList = ["pray", "study", "eat", "light", "take", "examine"];
 
+var resources = {
+    light: 0,
+    stone: 2,
+    wood: 0,
+    food: 0,
+    gold: 0,
+    cultists: 0
+}
+
+var buildings = {
+    shrine: 0,
+    temple: 0,
+    altar: 0,
+    farm: 0,
+    lodge: 0,
+    quarry: 0,
+    mine: 0,
+    mausoleum: 0,
+    dungeon: 0
+}
+
+var buildingDict = {
+    shrine: buildingShrine
+}
 
 
 //COMMANDS, TIMELINE, TEXT PARSING
 //--------------------------------
+
+//Text Parsing
 
 function singleCase(string) {
     string = removePunctuation(string.toLowerCase());
@@ -48,14 +77,19 @@ function firstWord(string)
     return string.split(" ")[0];
 }
 
+function secondWord(string)
+{
+    return string.split(" ")[1];
+}
+
 function parseText() {
     var currentString = document.getElementById("input_textbox").value;
     var cleanedString = removePunctuation(currentString.toLowerCase());
     var command = firstWord(cleanedString);
     var keyword_index = commandList.indexOf(command);
     if (keyword_index > -1) {
-        textCommand(command);
-        updateTimeline(singleCase(command), "text-keyword-user");
+        textCommand(command, secondWord(cleanedString));
+        console.log(secondWord(cleanedString));
     } else {
         updateTimeline(currentString, "text-god");
     }
@@ -66,14 +100,6 @@ function updateTimeline(string, style = "regular") {
     timeline.innerHTML = (timeline.innerHTML + "<p class=\"" + style + " fade-text\">" + string + "</p>");
     if (shouldScroll) {
         scrollToBottom(timeline);
-    }
-}
-
-function textCommand(cmd) {
-    if (cmd == "light") {
-        if (energybar.autoload == false) {
-            loadBar(energybar, energyBarLoadTime);
-        }
     }
 }
 
@@ -119,7 +145,27 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
     }
 }
 
+//Commands
 
+function textCommand(cmd, param) {
+    if (cmd == "light") {
+        if (energybar.autoload == false) {
+            loadBar(energybar, energyBarLoadTime);
+        }
+        updateTimeline(singleCase(cmd), "text-keyword-user");
+    }
+    else if (cmd == "build") {
+        if (param == undefined) {
+            updateTimeline("What would you like to build?");
+        }
+        else if (buildingDict[param] != undefined) {
+            buildBuilding(buildingDict[param]); //note - to pass parameter as key, need to use square bracket syntax
+        }
+        else {
+            updateTimeline("Can't build that.");
+        }
+    }
+}
 
 
 //UI, GRAPHICAL ELEMENTS
@@ -162,7 +208,7 @@ var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
 function harvestEnergyBar() {
-    resourceLight += 1;
+    addResource(light, 1);
     //updateTimeline("You have " + resourceLight + " light energy.");
     updateTimeline("You gained 1 light energy.");
     updateResources();
@@ -218,17 +264,31 @@ energybar.addEventListener("click", function () {
 //STORY FUNCTIONS
 
 
+//PROCESS FUNCTIONS
+function buildBuilding(bd)
+{
+    addResource("stone", -bd["stone"]);
+    buildings[bd.name] += 1;
+}
+
 
 //RESOURCE FUNCTIONS
 function updateResources()
 {
-    resourceDisplayLight.innerHTML = resourceLight;
-    resourceDisplayWood.innerHTML = resourceWood;
-    resourceDisplayStone.innerHTML = resourceStone;
-    resourceDisplayFood.innerHTML = resourceFood;
-    resourceDisplayCultists.innerHTML = resourceCultists;
+    resourceDisplayLight.innerHTML = resources.light;
+    resourceDisplayWood.innerHTML = resources.wood;
+    resourceDisplayStone.innerHTML = resources.stone;
+    resourceDisplayFood.innerHTML = resources.food;
+    resourceDisplayCultists.innerHTML = resources.cultists;
 }
 
+function addResource(res, amount)
+{
+    resources[res] += amount;
+    if(resources[res] < 0) resources[res] = 0;
+
+    updateResources();
+}
 
 //INITIALISATION
 //--------------------------------
@@ -236,4 +296,4 @@ function updateResources()
 energybar.autoload = false;
 inputbox.focus();
 updateResources();
-delayedUpdateTimeline("You walk through the doorway of the ruined temple alone. There's a <strong>mysterious cube</strong> lying on the pedestal.", 2);
+updateTimeline("You walk through the doorway of the ruined temple alone. There's a <strong>mysterious cube</strong> lying on the pedestal.");

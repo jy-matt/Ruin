@@ -94,6 +94,7 @@ h1 {
 }
 
 .resource-text {
+    text-align: center;
     padding-bottom: 12px;
     padding-top: 12px;
     padding-left: 6px;
