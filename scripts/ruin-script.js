@@ -6,49 +6,53 @@ var inputbox = document.getElementById("input_textbox");
 var timeline = document.getElementById("timeline");
 var energybar = document.getElementById("bar_energy");
 
-var resourceDisplayLight = document.getElementById("num-resource-light");
-var resourceDisplayWood = document.getElementById("num-resource-wood");
-var resourceDisplayStone = document.getElementById("num-resource-stone");
-var resourceDisplayFood = document.getElementById("num-resource-food");
-var resourceDisplayCultists = document.getElementById("num-resource-cultists");
+var resourceDisplay = {
+    light: document.getElementById("num-resource-light"),
+    stone: document.getElementById("num-resource-stone"),
+    wood: document.getElementById("num-resource-wood"),
+    food: document.getElementById("num-resource-food"),
+    gold: document.getElementById("num-resource-gold"),
+    cultists: document.getElementById("num-resource-cultists")
+}
 
 var energyBarLoadTime = 5;
 
 var currentTextString = "";
 var allowInput = true;
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
-var commandList = ["pray", "study", "eat", "light", "take", "examine", "build"];
+var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather"];
 
-var resourceLight = 0;
-var resourceStone = 0;
-var resourceWood = 0;
-var resourceFood = 0;
-var resourceGold = 0;
-var resourceCultists = 0;
 
 var resources = {
     light: 0,
-    stone: 2,
-    wood: 0,
-    food: 0,
-    gold: 0,
+    stone: 10,
+    wood: 10,
+    food: 10,
+    gold: 10,
     cultists: 0
+}
+
+var gatherableResources = {
+    stone: { name: "stone", amount: 1 },
+    wood: { name: "wood", amount: 1 },
+    food: { name: "food", amount: 1 },
 }
 
 var buildings = {
     shrine: 0,
-    temple: 0,
-    altar: 0,
+    //temple: 0,
+    //altar: 0,
     farm: 0,
-    lodge: 0,
-    quarry: 0,
-    mine: 0,
-    mausoleum: 0,
-    dungeon: 0
+    //lodge: 0,
+    //quarry: 0,
+    //mine: 0,
+    //mausoleum: 0,
+    //dungeon: 0
 }
 
 var buildingDict = {
-    shrine: buildingShrine
+    shrine: buildingShrine,
+    farm: buildingFarm
 }
 
 
@@ -160,9 +164,22 @@ function textCommand(cmd, param) {
         }
         else if (buildingDict[param] != undefined) {
             buildBuilding(buildingDict[param]); //note - to pass parameter as key, need to use square bracket syntax
+            updateTimeline(singleCase(buildingDict[param].name + " built."));
         }
         else {
             updateTimeline("Can't build that.");
+        }
+    }
+    else if (cmd == "gather") {
+        if (param == undefined) {
+            updateTimeline("What would you like to gather?");
+        }
+        else if (gatherableResources[param] != undefined) {
+            addResource(gatherableResources[param].name, gatherableResources[param].amount); //note - to pass parameter as key, need to use square bracket syntax
+            updateTimeline(singleCase("Gathered " + gatherableResources[param].amount + " " + gatherableResources[param].name + "."));
+        }
+        else {
+            updateTimeline("Can't gather that.");
         }
     }
 }
@@ -208,10 +225,10 @@ var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
 function harvestEnergyBar() {
-    addResource(light, 1);
+    addResource("light", 1);
     //updateTimeline("You have " + resourceLight + " light energy.");
     updateTimeline("You gained 1 light energy.");
-    updateResources();
+    updateResourceDisplay();
 }
 
 function loadBar(bar, seconds) {
@@ -243,7 +260,7 @@ function loadBar(bar, seconds) {
         } else {
             op = (Date.now() - startTime)/(endTime - startTime)
             bar.style.opacity = Math.ceil(op*1000)/1000;
-            document.getElementById("bar_percent").innerHTML = Math.ceil(op*100);
+            //document.getElementById("bar_percent").innerHTML = Math.ceil(op*100);
         }
     }
 }
@@ -255,7 +272,7 @@ function autoLoad(bar, seconds) {
 }
 
 energybar.addEventListener("click", function () {
-    if (energybar.autoload == false) {
+    if (energybar.autoload == false && energybar.loaded == true) {
         loadBar(energybar, energyBarLoadTime);
     }
 });
@@ -267,19 +284,22 @@ energybar.addEventListener("click", function () {
 //PROCESS FUNCTIONS
 function buildBuilding(bd)
 {
-    addResource("stone", -bd["stone"]);
+    for(_ResourceType in resources)
+    {
+        resourceCostSubtraction(_ResourceType, bd.cost[_ResourceType]);
+    }
     buildings[bd.name] += 1;
 }
 
 
 //RESOURCE FUNCTIONS
-function updateResources()
+function updateResourceDisplay()
 {
-    resourceDisplayLight.innerHTML = resources.light;
-    resourceDisplayWood.innerHTML = resources.wood;
-    resourceDisplayStone.innerHTML = resources.stone;
-    resourceDisplayFood.innerHTML = resources.food;
-    resourceDisplayCultists.innerHTML = resources.cultists;
+    for(_ResourceType in resources)
+    {
+        resourceDisplay[_ResourceType].innerHTML = Math.floor(resources[_ResourceType]);
+    }
+
 }
 
 function addResource(res, amount)
@@ -287,7 +307,40 @@ function addResource(res, amount)
     resources[res] += amount;
     if(resources[res] < 0) resources[res] = 0;
 
-    updateResources();
+    updateResourceDisplay();
+}
+
+function resourceCostSubtraction(res, amount)
+{
+    resources[res] -= amount;
+    if(resources[res] < 0) resources[res] = 0;
+
+    //does not update display values at this point
+}
+
+
+function updateResources()
+{
+    var newResources = {};
+
+    //Calculate resources gained from buildings
+    //basic formula: building resource production * num buildings
+    for (_BuildingType in buildings)
+    {
+        for (_ResourceType in resources)
+        {
+            newResources[_ResourceType] = buildingDict[_BuildingType].production[_ResourceType] * buildings[_BuildingType];
+        }
+    }
+
+    for(_ResourceType in resources)
+    {
+        resources[_ResourceType] += newResources[_ResourceType];
+    }
+
+    //Update display
+    updateResourceDisplay();
+
 }
 
 //INITIALISATION
@@ -295,5 +348,8 @@ function addResource(res, amount)
 //loadBar(energybar, 0);
 energybar.autoload = false;
 inputbox.focus();
-updateResources();
+
+updateResourceDisplay();
+updateResourcesInterval = setInterval(updateResources, 1000);
+
 updateTimeline("You walk through the doorway of the ruined temple alone. There's a <strong>mysterious cube</strong> lying on the pedestal.");
