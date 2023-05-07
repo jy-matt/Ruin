@@ -1,7 +1,9 @@
 /// <reference path="ruin-buildings.js" />
+/// <reference path="ruin-events.js" />
 
 //SET INITIAL VARIABLES
 //--------------------------------
+//Get HTML fields
 var inputbox = document.getElementById("input_textbox");
 var timeline = document.getElementById("timeline");
 var energybar = document.getElementById("bar_energy");
@@ -17,18 +19,23 @@ var resourceDisplay = {
 
 var energyBarLoadTime = 5;
 
+//Text parsing variables
 var currentTextString = "";
 var allowInput = true;
+var textDelay = false;
+var restrictedInput = false;
+var currentTextLength = 0;
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather"];
+var timelineStack = [];
 
-
+//Resources
 var resources = {
     light: 0,
-    stone: 10,
-    wood: 10,
-    food: 10,
-    gold: 10,
+    stone: 0,
+    wood: 0,
+    food: 0,
+    gold: 0,
     cultists: 0
 }
 
@@ -38,13 +45,14 @@ var gatherableResources = {
     food: { name: "food", amount: 1 },
 }
 
+//Buildings
 var buildings = {
     shrine: 0,
     //temple: 0,
-    //altar: 0,
+    altar: 0,
     farm: 0,
     //lodge: 0,
-    //quarry: 0,
+    quarry: 0,
     //mine: 0,
     //mausoleum: 0,
     //dungeon: 0
@@ -52,7 +60,9 @@ var buildings = {
 
 var buildingDict = {
     shrine: buildingShrine,
-    farm: buildingFarm
+    altar: buildingAltar,
+    farm: buildingFarm,
+    quarry: buildingQuarry
 }
 
 
@@ -110,6 +120,7 @@ function updateTimeline(string, style = "regular") {
 function delayedUpdateTimeline(string, delay=1, style='regular') {
     //delay is counted in cycles of ... (each cycle is 1.5 seconds)
     allowInput = false;
+    textDelay = true;
     
     timeline.innerHTML = (timeline.innerHTML + "<p class=\"regular\" id=\"ellipsis\">.</p>");
     var ellipsisHTML = document.getElementById("ellipsis");
@@ -125,6 +136,8 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
             //ellipsisHTML.removeAttribute("id");
             updateTimeline(string, style);
             clearInterval(ellipsisInterval);
+            textDelay = false;
+            delayedUpdateStack();
             allowInput = true;
         }
 
@@ -149,6 +162,24 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
     }
 }
 
+function timelineStackAdd(str) {
+    timelineStack.push(str);
+    delayedUpdateStack();
+}
+
+function delayedUpdateStack() {
+    if(timelineStack.length > 0 && !textDelay)
+    {
+        delayedUpdateTimeline(timelineStack[0], Math.floor(currentTextLength / 50) + 1); //sets 1 extra delay for every 50 characters
+        currentTextLength = timelineStack[0].length;
+        console.log(timelineStack.shift()); //removes first item of array
+    }
+    else
+    {
+        currentTextLength = 0;
+    };
+}
+
 //Commands
 
 function textCommand(cmd, param) {
@@ -158,28 +189,47 @@ function textCommand(cmd, param) {
         }
         updateTimeline(singleCase(cmd), "text-keyword-user");
     }
+
+    //BUILD
     else if (cmd == "build") {
         if (param == undefined) {
             updateTimeline("What would you like to build?");
         }
         else if (buildingDict[param] != undefined) {
-            buildBuilding(buildingDict[param]); //note - to pass parameter as key, need to use square bracket syntax
-            updateTimeline(singleCase(buildingDict[param].name + " built."));
+            if (hasEnoughResources(buildingDict[param].cost))
+            {
+                buildBuilding(buildingDict[param]); //note - to pass parameter as key, need to use square bracket syntax
+                updateTimeline(singleCase(buildingDict[param].name + " built."), "text-keyword-user");
+            } 
+            else {
+                updateTimeline("Not enough resources to build " + buildingDict[param].name + ".");
+            }
+            
         }
         else {
             updateTimeline("Can't build that.");
         }
     }
+
+    //GATHER
     else if (cmd == "gather") {
         if (param == undefined) {
             updateTimeline("What would you like to gather?");
         }
         else if (gatherableResources[param] != undefined) {
             addResource(gatherableResources[param].name, gatherableResources[param].amount); //note - to pass parameter as key, need to use square bracket syntax
-            updateTimeline(singleCase("Gathered " + gatherableResources[param].amount + " " + gatherableResources[param].name + "."));
+            updateTimeline(singleCase("Gathered " + gatherableResources[param].amount + " " + gatherableResources[param].name + "."), "text-keyword-user");
         }
         else {
             updateTimeline("Can't gather that.");
+        }
+    }
+
+    //TAKE
+    else if (cmd == "take") {
+        if (param == "cube" || param == "mysterious cube")
+        {
+            updateTimeline("Took mysterious cube.", "text-keyword-user");
         }
     }
 }
@@ -279,7 +329,22 @@ energybar.addEventListener("click", function () {
 
 
 //STORY FUNCTIONS
-
+function playEvent(_EventID)
+{
+    if(_EventID.preReq.played >= 1) //check if prerequisite event has already fired
+    {
+        for(i = 0; i < _EventID.text.length-1; i++)
+        {
+            if(i == 0) {
+                updateTimeline(_EventID.text[i]);
+                timelineStackAdd(_EventID.text[i+1]);
+            }
+            else {
+                timelineStackAdd(_EventID.text[i+1]);
+            }
+        }
+    }
+}
 
 //PROCESS FUNCTIONS
 function buildBuilding(bd)
@@ -318,6 +383,18 @@ function resourceCostSubtraction(res, amount)
     //does not update display values at this point
 }
 
+function hasEnoughResources(resourceList)
+{
+    for (_ResourceType in resourceList)
+    {
+        console.log(resourceList[_ResourceType] + " " + resources[_ResourceType]);
+        if (resourceList[_ResourceType] > resources[_ResourceType])
+        {
+            return false;
+        }
+    }
+    return true;
+}
 
 function updateResources()
 {
@@ -352,4 +429,5 @@ inputbox.focus();
 updateResourceDisplay();
 updateResourcesInterval = setInterval(updateResources, 1000);
 
-updateTimeline("You walk through the doorway of the ruined temple alone. There's a <strong>mysterious cube</strong> lying on the pedestal.");
+playEvent(event1);
+//updateTimeline("You walk through the doorway of the ruined temple alone. There's a <strong>mysterious cube</strong> lying on the ground.");
