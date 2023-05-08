@@ -1,3 +1,9 @@
+//Event Variables
+var eventVarMysteriousCube = false;
+
+
+
+//Events
 var eventAlways = {
     id: 0,
     name: "Dummy Event",
