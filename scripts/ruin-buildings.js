@@ -1,10 +1,15 @@
+/// <reference path="ruin-events.js" />
+/// <reference path="ruin-script.js" />
+
 var buildingNone = {
 
 }
 
 var buildingShrine = {
     name: "shrine",
+    plural: "shrines",
     description: "",
+    quota: 1,
     cost: {
         light: 0,
         stone: 1,
@@ -13,19 +18,14 @@ var buildingShrine = {
         gold: 0,
         cultists: 0
     },
-    production: {
-        light: 0,
-        stone: 0,
-        wood: 0,
-        food: 0,
-        gold: 0,
-        cultists: 0
-    }
+    onBuildFunction: eventSpecialActivateLight
 }
 
 var buildingAltar = {
     name: "altar",
+    plural: "altars",
     description: "",
+    quota: 1,
     cost: {
         light: 0,
         stone: 50,
@@ -46,7 +46,9 @@ var buildingAltar = {
 
 var buildingLumberyard = {
     name: "lumberyard",
+    plural: "lumberyards",
     description: "Allows you to gather wood.",
+    quota: 1,
     cost: {
         light: 0,
         stone: 0,
@@ -59,8 +61,10 @@ var buildingLumberyard = {
 
 var buildingLumbermill = {
     name: "lumbermill",
+    plural: "lumbermills",
     description: "",
     preReq: "lumberyard",
+    quota: 1,
     cost: {
         light: 0,
         stone: 0,
@@ -81,7 +85,9 @@ var buildingLumbermill = {
 
 var buildingQuarry = {
     name: "quarry",
+    plural: "quarries",
     description: "Allows you to gather stone.",
+    quota: 1,
     cost: {
         light: 0,
         stone: 0,
@@ -94,8 +100,10 @@ var buildingQuarry = {
 
 var buildingStonecutter = {
     name: "stonecutter",
+    plural: "stonecutters",
     description: "",
     preReq: "quarry",
+    quota: 1,
     cost: {
         light: 0,
         stone: 0,
@@ -116,7 +124,9 @@ var buildingStonecutter = {
 
 var buildingStorehouse = {
     name: "storehouse",
-    description: "",
+    plural: "storehouses",
+    description: "Allows you to gather food.",
+    quota: 1,
     cost: {
         light: 0,
         stone: 5,
@@ -129,8 +139,10 @@ var buildingStorehouse = {
 
 var buildingFarm = {
     name: "farm",
+    plural: "farms",
     description: "",
     preReq: "storehouse",
+    quota: 1,
     cost: {
         light: 0,
         stone: 10,
@@ -146,5 +158,23 @@ var buildingFarm = {
         food: 1,
         gold: 0,
         cultists: 0
+    }
+}
+
+var buildingStockpile = {
+    name: "stockpile",
+    plural: "stockpiles",
+    description: "Increases the amount of resources you can store.",
+    quota: 8,
+    cost: {
+        light: 0,
+        stone: 20,
+        wood: 20,
+        food: 0,
+        gold: 5,
+        cultists: 0
+    },
+    properties: {
+        storage: 60
     }
 }

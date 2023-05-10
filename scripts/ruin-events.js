@@ -1,6 +1,9 @@
+/// <reference path="ruin-buildings.js" />
+/// <reference path="ruin-script.js" />
+
 //Event Variables
 var eventVarMysteriousCube = false;
-
+var eventVarStoneDebris = false;
 
 
 //Events
@@ -35,8 +38,14 @@ var event2 = {
     preReq: event1,
     nextEvent: "",
     text: [
-        ""
+        "You see a collapsed <strong>shrine</strong> in the center of the antechamber, surrounded by fragments of <strong>stone</strong>.",
+        
     ],
     choices: "",
     played: 0
+}
+
+//Special Events
+function eventSpecialActivateLight() {
+    loadBar(energybar, energyBarLoadTime);
 }

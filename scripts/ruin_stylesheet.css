@@ -231,7 +231,7 @@ h1 {
     background-color: var(--color-light-alt);
     color: var(--color-dark);
     box-shadow: 0px 0px 0px var(--color-light-alt);
-    transition: box-shadow 200ms;
+    transition: box-shadow 1000ms;
     opacity: 0;
 }
 

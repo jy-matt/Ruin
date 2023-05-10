@@ -23,20 +23,22 @@ var energyBarLoadTime = 5;
 var currentTextString = "";
 var allowInput = true;
 var textDelay = false;
-var restrictedInput = false;
+var restrictedCommandInput = false;
 var currentTextLength = 0;
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 var timelineStack = [];
 
-var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather"];
+var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather", "divine"];
 
 //Resources
+var resourceCap = 20;
+
 var resources = {
     light: 0,
-    stone: 10,
-    wood: 10,
-    food: 10,
-    gold: 10,
+    stone: 0,
+    wood: 0,
+    food: 0,
+    gold: 0,
     cultists: 0
 }
 
@@ -61,6 +63,7 @@ var buildings = {
     //mine: 0,
     //mausoleum: 0,
     //dungeon: 0
+    stockpile: 0,
 }
 
 var buildingDict = {
@@ -71,19 +74,24 @@ var buildingDict = {
     quarry: buildingQuarry,
     stonecutter: buildingStonecutter,
     storehouse: buildingStorehouse,
-    farm: buildingFarm    
+    farm: buildingFarm,
+    stockpile: buildingStockpile
 }
 
 
 //COMMANDS, TIMELINE, TEXT PARSING
 //--------------------------------
 
-//Text Parsing
+//Text Parsing and Stylisation
 
 function singleCase(string) {
     string = removePunctuation(string.toLowerCase());
     string = string.charAt(0).toUpperCase() + string.slice(1);
     return (string + ".");
+}
+
+function firstCaps(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 function removePunctuation(string) {
@@ -113,6 +121,10 @@ function simplifyNumber(number) {
     }
 }
 
+function textStyleKeyword(string) {
+    return ("<span class=\"text-keyword\">" + string + "</span>");
+}
+
 function firstWord(string)
 {
     return string.split(" ")[0];
@@ -123,9 +135,16 @@ function secondWord(string)
     return string.split(" ")[1];
 }
 
-function parseText() {
+function parseInputText() {
     var currentString = document.getElementById("input_textbox").value;
     var cleanedString = removePunctuation(currentString.toLowerCase());
+
+    if(restrictedCommandInput != "") {
+        textCommand(restrictedCommandInput, firstWord(cleanedString));
+        restrictedCommandInput = "";
+        return;
+    }
+
     var command = firstWord(cleanedString);
     var keyword_index = commandList.indexOf(command);
     if (keyword_index > -1) {
@@ -161,8 +180,7 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
 
     function ellipsisUpdate()
     {
-        if(ellipsisCount>=delay)
-        {
+        if(ellipsisCount>=delay) {
             ellipsisHTML.remove();
             //ellipsisHTML.innerHTML = string;
             //ellipsisHTML.removeAttribute("id");
@@ -173,21 +191,14 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
             allowInput = true;
         }
 
-        if(ellipsisHTML.innerHTML == "")
-        {
+        if(ellipsisHTML.innerHTML == "") {
             ellipsisHTML.innerHTML = ".";
-        }
-        else if(ellipsisHTML.innerHTML == ".")
-        {
+        } else if(ellipsisHTML.innerHTML == ".") {
             ellipsisHTML.innerHTML = "..";
-        }
-        else if(ellipsisHTML.innerHTML == "..")
-        {
+        } else if(ellipsisHTML.innerHTML == "..") {
             ellipsisHTML.innerHTML = "...";
             ellipsisCount += 1;
-        }
-        else if(ellipsisHTML.innerHTML == "...")
-        {
+        } else if(ellipsisHTML.innerHTML == "...") {
             ellipsisHTML.innerHTML = ".";
         }
 
@@ -200,14 +211,11 @@ function timelineStackAdd(str) {
 }
 
 function delayedUpdateStack() {
-    if(timelineStack.length > 0 && !textDelay)
-    {
+    if(timelineStack.length > 0 && !textDelay) {
         delayedUpdateTimeline(timelineStack[0], Math.floor(currentTextLength / 50) + 1); //sets 1 extra delay for every 50 characters
         currentTextLength = timelineStack[0].length;
         console.log(timelineStack.shift()); //removes first item of array
-    }
-    else
-    {
+    } else {
         currentTextLength = 0;
     };
 }
@@ -227,28 +235,27 @@ function textCommand(cmd, param) {
         var targetBuilding = buildingDict[param];
 
         if (param == undefined) {
-            updateTimeline("What would you like to build?");
+            updateTimeline("What do you want to build?");
+            restrictedCommandInput = "build";
         }
         else if (targetBuilding != undefined) {
-            if (targetBuilding.preReq != undefined && buildings[targetBuilding.preReq] <= 0) //check if building has prerequisite and fulfilled
-            {
-                updateTimeline("You need to build a " + targetBuilding.preReq + " first.");
-            }
-            else
-            {
-                if (hasEnoughResources(buildingDict[param].cost))
-                {
-                    buildBuilding(buildingDict[param]); //note - to pass parameter as key, need to use square bracket syntax
-                    updateTimeline(singleCase(buildingDict[param].name + " built."), "text-keyword-user");
-                } 
-                else {
-                    updateTimeline("Not enough resources to build " + buildingDict[param].name + ".");
+            //check if building has prerequisite and fulfilled
+            if (targetBuilding.preReq != undefined && buildings[targetBuilding.preReq] <= 0) {
+                updateTimeline("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
+            } else {
+                if(targetBuilding.quota != undefined && buildings[targetBuilding.name] >= targetBuilding.quota) {
+                    updateTimeline("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
+                } else if (hasEnoughResources(targetBuilding.cost)) {
+                    buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
+                    updateTimeline(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
+                } else {
+                    updateTimeline("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
                 }
             }
             
         }
         else {
-            updateTimeline("Can't build that.");
+            updateTimeline("You can't build that.");
         }
     }
 
@@ -257,35 +264,66 @@ function textCommand(cmd, param) {
         var targetResource = gatherableResources[param];
 
         if (param == undefined) {
-            updateTimeline("What would you like to gather?"); //to change syntax
+            updateTimeline("What do you want to gather?"); //to change syntax
+            restrictedCommandInput = "gather";
         }
         else if (targetResource != undefined) {
-            if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0)
-            {
+            if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
                 updateTimeline("You can't gather that.");
-            }
-            else
-            {
+            } else {
                 addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
-                delayedUpdateTimeline("Gathered " + simplifyNumber(targetResource.amount) + " " + targetResource.name + ".", targetResource.delay, "text-keyword-user");
+                delayedUpdateTimeline("You gathered " + simplifyNumber(targetResource.amount) + " " + targetResource.name + ".", targetResource.delay);
             }
-        }
-        else {
+        } else {
             updateTimeline("You can't gather that.");
         }
     }
 
     //TAKE
     else if (cmd == "take") {
-        if (param == "cube" || param == "mysterious cube") //to add multi-word handling
+        if (param == undefined)
         {
-            if(!eventVarMysteriousCube) {
+            updateTimeline("What do you want to take?");
+            restrictedCommandInput = "take";
+        }
+        else if (param == "cube" || param == "mysterious cube") //to add multi-word handling
+        {
+            if(!eventVarMysteriousCube && event1.played) {
                 eventVarMysteriousCube = true;
-                updateTimeline("Took mysterious cube.", "text-keyword-user");
+                updateTimeline("You take the " + textStyleKeyword("mysterious cube") + ".");
+                playEvent(event2);
             } else {
-                updateTimeline("Already taken.");
+                updateTimeline("You can't take that.");
             }
-            
+        }
+        else if (param == "stone") {
+            if(!eventVarStoneDebris && event2.played) {
+                eventVarStoneDebris = true;
+
+                addResource("stone", 1);
+                updateTimeline("You take the stone debris.");
+            } else {
+                updateTimeline("You can't take that.");
+            }
+        } else {
+            updateTimeline("You can't take that.");
+        }
+    }
+
+    //CHEATS
+    else if (cmd == "divine") {
+        if (param == "village") {
+            buildBuilding(buildingDict.shrine);
+            buildBuilding(buildingDict.lumberyard);
+            buildBuilding(buildingDict.lumbermill);
+            buildBuilding(buildingDict.quarry);
+            buildBuilding(buildingDict.stonecutter);
+            buildBuilding(buildingDict.storehouse);
+            buildBuilding(buildingDict.farm);
+            updateTimeline("With a flurry of light, buildings rise around you.", "text-god");
+        }
+        else {
+            updateTimeline("A bright glow engulfs you briefly, then fizzles out.", "text-god");
         }
     }
 }
@@ -316,7 +354,7 @@ function fadeText() {
 inputbox.addEventListener("keyup", function (event) {
     event.preventDefault();
     if (event.code === "Enter" && allowInput == true) {
-        parseText();
+        parseInputText();
         //updateTimeline(currentTextString, "regular");
         inputbox.value = "";
     }
@@ -346,7 +384,7 @@ function loadBar(bar, seconds) {
 
     //sets the selected bar to load for n seconds
     var op = 0;
-    var id = setInterval(frame, 50); // n minimum 20 for accurate background load. rewrite function to update value accurately according to time, while display updates in a recurring function similar to fade
+    var id = setInterval(frame, 100); // n minimum 20 for accurate background load. rewrite function to update value accurately according to time, while display updates in a recurring function similar to fade
     var startTime = Date.now();
     var endTime = startTime + (seconds*1000);
 
@@ -360,7 +398,7 @@ function loadBar(bar, seconds) {
             document.getElementById("bar_percent").innerHTML = "";
             bar.loaded = true;
             bar.classList.add("clickable");
-            bar.style.boxShadow = "0px 0px 15px var(--color-light-alt)";
+            bar.style.boxShadow = "0px 0px 30px var(--color-light-alt)";
             bar.dispatchEvent(loadBarEvent);
             clearInterval(id);
         } else {
@@ -387,37 +425,46 @@ energybar.addEventListener("click", function () {
 //STORY FUNCTIONS
 function playEvent(_EventID)
 {
-    if(_EventID.preReq.played >= 1) //check if prerequisite event has already fired
-    {
-        for(i = 0; i < _EventID.text.length-1; i++)
-        {
-            if(i == 0) {
-                updateTimeline(_EventID.text[i]);
-                timelineStackAdd(_EventID.text[i+1]);
-            }
-            else {
-                timelineStackAdd(_EventID.text[i+1]);
-            }
+    //check if prerequisite event has already fired
+    if(_EventID.preReq.played >= 1) {
+        for(i = 0; i < _EventID.text.length; i++) {
+            timelineStackAdd(_EventID.text[i]);
         }
+        _EventID.played += 1;
     }
 }
 
 //PROCESS FUNCTIONS
 function buildBuilding(bd)
 {
-    for(_ResourceType in resources)
-    {
+    for(_ResourceType in resources) {
         resourceCostSubtraction(_ResourceType, bd.cost[_ResourceType]);
     }
+
     buildings[bd.name] += 1;
+
+    updateBuildingVariables();
+
+    if(bd.onBuildFunction != undefined) {
+        bd.onBuildFunction();
+    }
+}
+
+function updateBuildingVariables()
+{
+    //update resource cap
+    if(buildings.stockpile == 0) {
+        resourceCap = 20;
+    } else {
+        resourceCap = buildings.stockpile * buildingDict.stockpile.properties.storage;
+    }
 }
 
 
 //RESOURCE FUNCTIONS
 function updateResourceDisplay()
 {
-    for(_ResourceType in resources)
-    {
+    for(_ResourceType in resources) {
         resourceDisplay[_ResourceType].innerHTML = simplifyNumber(Math.floor(resources[_ResourceType]));
     }
 
@@ -426,7 +473,12 @@ function updateResourceDisplay()
 function addResource(res, amount)
 {
     resources[res] += amount;
-    if(resources[res] < 0) resources[res] = 0;
+
+    if (resources[res] > resourceCap) {
+        resources[res] = resourceCap;
+    } else if(resources[res] < 0) {
+        resources[res] = 0;
+    }
 
     updateResourceDisplay();
 }
@@ -434,18 +486,21 @@ function addResource(res, amount)
 function resourceCostSubtraction(res, amount)
 {
     resources[res] -= amount;
-    if(resources[res] < 0) resources[res] = 0;
+
+    if(resources[res] < 0) {
+        resources[res] = 0;
+    } else if (resources[res] > resourceCap) {
+        resources[res] = resourceCap;
+    }
 
     //does not update display values at this point
 }
 
 function hasEnoughResources(resourceList)
 {
-    for (_ResourceType in resourceList)
-    {
+    for (_ResourceType in resourceList) {
         console.log(resourceList[_ResourceType] + " " + resources[_ResourceType]);
-        if (resourceList[_ResourceType] > resources[_ResourceType])
-        {
+        if (resourceList[_ResourceType] > resources[_ResourceType]) {
             return false;
         }
     }
@@ -458,12 +513,9 @@ function updateResources()
 
     //Calculate resources gained from buildings
     //basic formula: building resource production * num buildings
-    for (_BuildingType in buildings)
-    {
-        if (buildings[_BuildingType] > 0 && buildingDict[_BuildingType].production != undefined)
-        {
-            for (_ResourceType in resources)
-            {
+    for (_BuildingType in buildings) {
+        if (buildings[_BuildingType] > 0 && buildingDict[_BuildingType].production != undefined) {
+            for (_ResourceType in resources) {
                 if(newResources[_ResourceType] == undefined) {
                     newResources[_ResourceType] = buildingDict[_BuildingType].production[_ResourceType] * buildings[_BuildingType];
                 } else {
@@ -475,9 +527,15 @@ function updateResources()
 
     for(_ResourceType in resources)
     {
-        if (newResources[_ResourceType] != undefined)
-        {
+        if (newResources[_ResourceType] != undefined) {
+
             resources[_ResourceType] += newResources[_ResourceType];
+
+            if (resources[_ResourceType] > resourceCap) {
+                resources[_ResourceType] = resourceCap;
+            } else if(resources[_ResourceType] < 0) {
+                resources[_ResourceType] = 0;
+            }
         }
     }
 
