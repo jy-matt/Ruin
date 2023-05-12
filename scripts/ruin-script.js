@@ -125,14 +125,22 @@ function textStyleKeyword(string) {
     return ("<span class=\"text-keyword\">" + string + "</span>");
 }
 
-function firstWord(string)
-{
+function firstWord(string) {
     return string.split(" ")[0];
 }
 
-function secondWord(string)
-{
-    return string.split(" ")[1];
+function followingWords(string) {
+    return string.split(" ").slice(1);
+}
+
+function stringArrayMatches(inputStringArray, referenceStringArray) {
+    for(i==0; i<referenceStringArray.length; i++) {
+        if(inputStringArray[i] != referenceStringArray[i] || inputStringArray[i] == undefined) {
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 function parseInputText() {
@@ -148,8 +156,8 @@ function parseInputText() {
     var command = firstWord(cleanedString);
     var keyword_index = commandList.indexOf(command);
     if (keyword_index > -1) {
-        textCommand(command, secondWord(cleanedString));
-        console.log(secondWord(cleanedString));
+        textCommand(command, followingWords(cleanedString));
+        console.log(followingWords(cleanedString));
     } else {
         updateTimeline(currentString, "text-god");
     }
@@ -222,7 +230,7 @@ function delayedUpdateStack() {
 
 //Commands
 
-function textCommand(cmd, param) {
+function textCommand(cmd, params) {
     if (cmd == "light") {
         if (energybar.autoload == false) {
             loadBar(energybar, energyBarLoadTime);
@@ -232,9 +240,9 @@ function textCommand(cmd, param) {
 
     //BUILD
     else if (cmd == "build") {
-        var targetBuilding = buildingDict[param];
+        var targetBuilding = buildingDict[params[0]];
 
-        if (param == undefined) {
+        if (params[0] == undefined) {
             updateTimeline("What do you want to build?");
             restrictedCommandInput = "build";
         }
@@ -261,9 +269,9 @@ function textCommand(cmd, param) {
 
     //GATHER
     else if (cmd == "gather") {
-        var targetResource = gatherableResources[param];
+        var targetResource = gatherableResources[params[0]];
 
-        if (param == undefined) {
+        if (params[0] == undefined) {
             updateTimeline("What do you want to gather?"); //to change syntax
             restrictedCommandInput = "gather";
         }
@@ -281,12 +289,12 @@ function textCommand(cmd, param) {
 
     //TAKE
     else if (cmd == "take") {
-        if (param == undefined)
+        if (params[0] == undefined)
         {
             updateTimeline("What do you want to take?");
             restrictedCommandInput = "take";
         }
-        else if (param == "cube" || param == "mysterious cube") //to add multi-word handling
+        else if (params[0] == "cube" || stringArrayMatches(params, ["mysterious", "cube"])) //to add multi-word handling
         {
             if(!eventVarMysteriousCube && event1.played) {
                 eventVarMysteriousCube = true;
@@ -296,7 +304,7 @@ function textCommand(cmd, param) {
                 updateTimeline("You can't take that.");
             }
         }
-        else if (param == "stone") {
+        else if (params[0] == "stone" || stringArrayMatches(params, ["stone", "debris"])) {
             if(!eventVarStoneDebris && event2.played) {
                 eventVarStoneDebris = true;
 
@@ -312,7 +320,7 @@ function textCommand(cmd, param) {
 
     //CHEATS
     else if (cmd == "divine") {
-        if (param == "village") {
+        if (params[0] == "village") {
             buildBuilding(buildingDict.shrine);
             buildBuilding(buildingDict.lumberyard);
             buildBuilding(buildingDict.lumbermill);
