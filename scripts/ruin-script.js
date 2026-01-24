@@ -18,7 +18,7 @@ var resourceDisplay = {
     cultists: document.getElementById("num-resource-cultists")
 }
 
-var energyBarLoadTime = 10;
+var energyBarLoadTime = 5;
 
 //Text parsing variables
 var currentTextString = "";
@@ -30,6 +30,15 @@ var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 var timelineStack = [];
 
 var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather", "divine"];
+
+//Gamestate
+const game = {
+    turn: 0,
+    resources: { scrap: 0, flesh: 0, hands: 0, script: 0, fervor: 0 },
+    buildings: { },
+    eventFlags: { },
+    actionQueue: [],
+};
 
 //Resources
 var resourceCap = 20;
@@ -136,12 +145,12 @@ function followingWords(string) {
 
 function stringArrayMatches(inputStringArray, referenceStringArray) {
     for(let i=0; i<referenceStringArray.length; i++) {
-        if(inputStringArray[i] != referenceStringArray[i] || inputStringArray[i] == undefined) {
-            return false;
+        if(inputStringArray.includes(referenceStringArray[i])) {
+            return true;
         }
     }
     
-    return true;
+    return false;
 }
 
 function parseInputText() {
@@ -164,174 +173,156 @@ function parseInputText() {
     }
 }
 
-function updateTimeline(string, style = "regular") {
-    shouldScroll = timeline.scrollTop + timeline.clientHeight === timeline.scrollHeight;
-    timeline.innerHTML = (timeline.innerHTML + "<p class=\"" + style + " fade-text\">" + string + "</p>");
-    if (shouldScroll) {
-        scrollToBottom(timeline);
+//Timeline Management Functions
+
+function updateTimeline(string, { style = "regular", asHtml = true } = {} ){
+    const p = document.createElement("p");
+    p.className = `${style} fade-text`;
+    
+    // check if we want to pass the string as string or html
+    if (asHtml) {
+        p.innerHTML = string;
     }
+    else {
+        p.textContent = string;
+    }
+
+    const toScroll = isScrollPositionAtBottom();
+    timeline.appendChild(p);
+    if (toScroll) scrollToBottom(timeline);
+
+    return p; //in case of future modification usage
 }
 
-function delayedUpdateTimeline(string, delay=1, style='regular') {
-    //delay is counted in cycles of ... (each cycle is 1.5 seconds)
+function isScrollPositionAtBottom() {
+    return timeline.scrollTop + timeline.clientHeight >= timeline.scrollHeight -2; //-2 to account for minor rounding differences
+}
+
+
+async function write(text, { style = "regular", delayCycles = 0, asHtml = true } = {}) {
     allowInput = false;
-    textDelay = true;
-    
-    shouldScroll = timeline.scrollTop + timeline.clientHeight === timeline.scrollHeight;
-    timeline.innerHTML = (timeline.innerHTML + "<p class=\"regular\" id=\"ellipsis\">.</p>");
-    if (shouldScroll) {
-        scrollToBottom(timeline);
-    }
-    
-    var ellipsisHTML = document.getElementById("ellipsis");
-    var ellipsisInterval = setInterval(ellipsisUpdate, 500);
-    var ellipsisCount = 0;
 
-    function ellipsisUpdate()
-    {
-        if(ellipsisCount>=delay) {
-            ellipsisHTML.remove();
-            //ellipsisHTML.innerHTML = string;
-            //ellipsisHTML.removeAttribute("id");
-            updateTimeline(string, style);
-            clearInterval(ellipsisInterval);
-            textDelay = false;
-            delayedUpdateStack();
-            allowInput = true;
+    if (delayCycles > 0) {
+        
+        //create ellipsis element
+        const pEllipsis = document.createElement("p");
+        pEllipsis.className = "regular";
+        timeline.appendChild(pEllipsis);
 
-            return true;
+        //animate ellipsis element
+        for (let d = 0; d < delayCycles; d++) {
+            pEllipsis.textContent = ".";
+            await wait(500);
+            pEllipsis.textContent = "..";
+            await wait(500);
+            pEllipsis.textContent = "...";
+            await wait(500);
         }
 
-        if(ellipsisHTML.innerHTML == "") {
-            ellipsisHTML.innerHTML = ".";
-        } else if(ellipsisHTML.innerHTML == ".") {
-            ellipsisHTML.innerHTML = "..";
-        } else if(ellipsisHTML.innerHTML == "..") {
-            ellipsisHTML.innerHTML = "...";
-            ellipsisCount += 1;
-        } else if(ellipsisHTML.innerHTML == "...") {
-            ellipsisHTML.innerHTML = ".";
-        }
-
+        updateTimeline(text, { style: style, asHtml: asHtml});
+        pEllipsis.remove();
     }
-
-    return false;
-}
-
-function timelineStackAdd(str) {
-    timelineStack.push(str);
-    delayedUpdateStack();
-}
-
-function timelineStackAddFunction(f, parameters) {
-    timelineStack.push([f, parameters]);
-    delayedUpdateStack();
-}
-
-function delayedUpdateStack() {
-    console.log(timelineStack[0]);
-    if(timelineStack.length > 0 && !textDelay) { //if there is an awaiting string in timelineStack
-        delayedUpdateTimeline(timelineStack[0], Math.floor(currentTextLength / 50) + 1); //sets 1 extra delay for every 50 characters
-        currentTextLength = timelineStack[0].length;
-        console.log(timelineStack.shift()); //removes first item of array
-    } else {
-        currentTextLength = 0;
-    };
+    else {
+        updateTimeline(text, { style: style, asHtml: asHtml});
+    }
+       
+    
+    allowInput = true;
 }
 
 //Commands
 
-async function textCommand(cmd, params) {
-    if (cmd == "light") {
-        if (energybar.autoload == false) {
-            loadBar(energybar, energyBarLoadTime);
-        }
-        updateTimeline(singleCase(cmd), "text-keyword-user");
-    }
+async function textCommand(verb, object) {
 
     //BUILD
-    else if (cmd == "build") {
-        var targetBuilding = buildingDict[params[0]];
+    if (verb == "build") {
+        var targetBuilding = buildingDict[object[0]];
 
-        if (params[0] == undefined) {
-            updateTimeline("What do you want to build?");
+        if (object[0] == undefined) {
+            await write("What do you want to build?");
             restrictedCommandInput = "build";
         }
         else if (targetBuilding != undefined) {
             //check if building has prerequisite and fulfilled
             if (targetBuilding.preReq != undefined && buildings[targetBuilding.preReq] <= 0) {
-                updateTimeline("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
+                await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
+            } else if(targetBuilding = buildingAltar) {
+                if(hasEnoughResources(targetBuilding.cost)) {
+                    buildBuilding(targetBuilding);
+                } else {
+                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                }
             } else {
                 if(targetBuilding.quota != undefined && buildings[targetBuilding.name] >= targetBuilding.quota) {
-                    updateTimeline("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
+                    await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
                 } else if (hasEnoughResources(targetBuilding.cost)) {
                     buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
-                    updateTimeline(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
+                    await write(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
                 } else {
-                    updateTimeline("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
                 }
             }
             
         }
         else {
-            updateTimeline("You can't build that.");
+            await write("You can't build that.");
         }
     }
 
     //GATHER
-    else if (cmd == "gather") {
-        var targetResource = gatherableResources[params[0]];
+    else if (verb == "gather") {
+        var targetResource = gatherableResources[object[0]];
 
-        if (params[0] == undefined) {
-            updateTimeline("What do you want to gather?"); //to change syntax
+        if (object[0] == undefined) {
+            await write("What do you want to gather?"); //to change syntax
             restrictedCommandInput = "gather";
         }
         else if (targetResource != undefined) {
             if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
-                updateTimeline("You can't gather that.");
+                await write("You can't gather that.");
             } else {
-                delayedUpdateTimeline("You gathered " + simplifyNumber(targetResource.amount) + " " + targetResource.name + ".", targetResource.delay);
+                await write(`You gathered ${simplifyNumber(targetResource.amount)} ${targetResource.name}.`, { delayCycles: targetResource.delay });
                 addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
             }
         } else {
-            updateTimeline("You can't gather that.");
+            await write("You can't gather that.");
         }
     }
 
     //TAKE
-    else if (cmd == "take") {
-        if (params[0] == undefined)
+    else if (verb == "take") {
+        if (object[0] == undefined)
         {
-            updateTimeline("What do you want to take?");
+            await write("What do you want to take?");
             restrictedCommandInput = "take";
         }
-        else if (params[0] == "cube" || stringArrayMatches(params, ["mysterious", "cube"])) //to add multi-word handling
+        else if (object[0] == "cube" || stringArrayMatches(object, ["mysterious", "cube"])) //to add multi-word handling
         {
             if(!eventVarMysteriousCube && event1.played) {
                 eventVarMysteriousCube = true;
-                updateTimeline("You take the " + textStyleKeyword("mysterious cube") + ".");
-                playEvent(event2);
+                await write("You take the " + textStyleKeyword("mysterious cube") + ".");
+                await playEvent(event2);
             } else {
-                updateTimeline("You can't take that.");
+                await write("You can't take that.");
             }
         }
-        else if (params[0] == "stone" || stringArrayMatches(params, ["stone", "debris"])) {
+        else if (object[0] == "stone" || stringArrayMatches(object, ["fragment", "fragments", "stones"])) {
             if(!eventVarStoneDebris && event2.played) {
                 eventVarStoneDebris = true;
 
                 addResource("stone", 1);
-                updateTimeline("You take the stone debris.");
+                await playEvent(event3);
             } else {
-                updateTimeline("You can't take that.");
+                await write("You can't take that.");
             }
         } else {
-            updateTimeline("You can't take that.");
+            await write("You can't take that.");
         }
     }
 
     //CHEATS
-    else if (cmd == "divine") {
-        if (params[0] == "village") {
+    else if (verb == "divine") {
+        if (object[0] == "village") {
             buildBuilding(buildingDict.shrine);
             buildBuilding(buildingDict.lumberyard);
             buildBuilding(buildingDict.lumbermill);
@@ -339,10 +330,10 @@ async function textCommand(cmd, params) {
             buildBuilding(buildingDict.stonecutter);
             buildBuilding(buildingDict.storehouse);
             buildBuilding(buildingDict.farm);
-            updateTimeline("With a flurry of light, buildings rise around you.", "text-god");
+            await write("With a flurry of light, buildings rise around you.", { style: "text-god" });
         }
         else {
-            updateTimeline("A bright glow engulfs you briefly, then fizzles out.", "text-god");
+            await write("A bright glow engulfs you briefly, then fizzles out.", { style: "text-god" });
         }
     }
 }
@@ -387,17 +378,17 @@ inputbox.addEventListener("keyup", function (event) {
 var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
-function harvestEnergyBar() {
+async function harvestEnergyBar() {
     addResource("light", 1);
     //updateTimeline("You have " + resourceLight + " light energy.");
-    updateTimeline("You gained 1 light energy.");
+    await write("You gained 1 light energy.");
     updateResourceDisplay();
 }
 
-function loadBar(bar, seconds) {
+async function loadBar(bar, seconds) {
     //harvest from bar
     if (bar.loaded == true) {
-        harvestEnergyBar();
+        await harvestEnergyBar();
         bar.classList.remove("clickable");
     }
 
@@ -442,14 +433,37 @@ energybar.addEventListener("click", function () {
 
 
 //STORY FUNCTIONS
-function playEvent(_EventID)
+async function playEvent(_EventID)
 {
     //check if prerequisite event has already fired
     if(_EventID.preReq.played >= 1) {
-        for(i = 0; i < _EventID.text.length; i++) {
-            timelineStackAdd(_EventID.text[i]);
+        let prevTextLength = 0;
+        for(let i = 0; i < _EventID.text.length; i++) {
+            await write (_EventID.text[i], { delayCycles : Math.floor(prevTextLength / 50) + 1});
+            prevTextLength = _EventID.text[i].length;
         }
         _EventID.played += 1;
+        prevTextLength = 0;
+
+        if(_EventID.onEventCompleteFunction) {
+            _EventID.onEventCompleteFunction();
+        }
+    }
+}
+
+async function startGame()
+{
+    //playEvent(event1); //proper game start
+    skipIntro(); //skips the long narrative intro
+}
+
+async function skipIntro()
+{
+    event1.played = 1;
+
+    const truncatedLines = event1.text.slice(-2);
+    for (const line of truncatedLines) {
+        await write(line);
     }
 }
 
@@ -464,7 +478,7 @@ function buildBuilding(bd)
 
     updateBuildingVariables();
 
-    if(bd.onBuildFunction != undefined) {
+    if(bd.onBuildFunction) {
         bd.onBuildFunction();
     }
 }
@@ -580,6 +594,12 @@ function cultistUnassign() {
 
 }
 
+
+//BACKEND FUNCTIONS
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 //INITIALISATION
 //--------------------------------
 //loadBar(energybar, 0);
@@ -589,4 +609,4 @@ inputbox.focus();
 updateResourceDisplay();
 updateResourcesInterval = setInterval(updateResources, 1000);
 
-playEvent(event1);
+startGame();

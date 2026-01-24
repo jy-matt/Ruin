@@ -18,8 +18,7 @@ var buildingShrine = {
         food: 0,
         gold: 0,
         cultists: 0
-    },
-    onBuildFunction: eventSpecialActivateLight
+    }
 }
 
 var buildingAltar = {
@@ -29,8 +28,8 @@ var buildingAltar = {
     quota: 1,
     cost: {
         light: 0,
-        stone: 50,
-        wood: 10,
+        stone: 1,
+        wood: 0,
         food: 0,
         gold: 0,
         cultists: 0
@@ -40,9 +39,11 @@ var buildingAltar = {
         stone: 0,
         wood: 0,
         food: 0,
-        gold: 1,
+        gold: 0,
         cultists: 0
-    }
+    },
+    notifyOnBuild: 0,
+    onBuildFunction: () => playEvent(event4)
 }
 
 var buildingLumberyard = {
