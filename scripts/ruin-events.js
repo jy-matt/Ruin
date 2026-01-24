@@ -1,5 +1,6 @@
 /// <reference path="ruin-buildings.js" />
 /// <reference path="ruin-script.js" />
+/// <reference path="../lib/jquery.3.7.0.js" />
 
 //Event Variables
 var eventVarMysteriousCube = false;
@@ -10,14 +11,17 @@ var eventVarStoneDebris = false;
 var eventAlways = {
     id: 0,
     name: "Dummy Event",
-    preReq: eventAlways,
-    nextEvent: eventAlways,
+    preReq: null,
+    nextEvent: null,
     text: [
         "Dummy Text."
     ],
     choices: "",
     played: 1
 }
+
+eventAlways.preReq = eventAlways;
+eventAlways.nextEvent = eventAlways;
 
 var event1 = {
     id: 1,

@@ -1,5 +1,6 @@
 /// <reference path="ruin-buildings.js" />
 /// <reference path="ruin-events.js" />
+/// <reference path="../lib/jquery.3.7.0.js" />
 
 //SET INITIAL VARIABLES
 //--------------------------------
@@ -17,13 +18,13 @@ var resourceDisplay = {
     cultists: document.getElementById("num-resource-cultists")
 }
 
-var energyBarLoadTime = 5;
+var energyBarLoadTime = 10;
 
 //Text parsing variables
 var currentTextString = "";
 var allowInput = true;
 var textDelay = false;
-var restrictedCommandInput = false;
+var restrictedCommandInput = "";
 var currentTextLength = 0;
 var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 var timelineStack = [];
@@ -134,7 +135,7 @@ function followingWords(string) {
 }
 
 function stringArrayMatches(inputStringArray, referenceStringArray) {
-    for(i==0; i<referenceStringArray.length; i++) {
+    for(let i=0; i<referenceStringArray.length; i++) {
         if(inputStringArray[i] != referenceStringArray[i] || inputStringArray[i] == undefined) {
             return false;
         }
@@ -197,6 +198,8 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
             textDelay = false;
             delayedUpdateStack();
             allowInput = true;
+
+            return true;
         }
 
         if(ellipsisHTML.innerHTML == "") {
@@ -211,6 +214,8 @@ function delayedUpdateTimeline(string, delay=1, style='regular') {
         }
 
     }
+
+    return false;
 }
 
 function timelineStackAdd(str) {
@@ -218,8 +223,14 @@ function timelineStackAdd(str) {
     delayedUpdateStack();
 }
 
+function timelineStackAddFunction(f, parameters) {
+    timelineStack.push([f, parameters]);
+    delayedUpdateStack();
+}
+
 function delayedUpdateStack() {
-    if(timelineStack.length > 0 && !textDelay) {
+    console.log(timelineStack[0]);
+    if(timelineStack.length > 0 && !textDelay) { //if there is an awaiting string in timelineStack
         delayedUpdateTimeline(timelineStack[0], Math.floor(currentTextLength / 50) + 1); //sets 1 extra delay for every 50 characters
         currentTextLength = timelineStack[0].length;
         console.log(timelineStack.shift()); //removes first item of array
@@ -230,7 +241,7 @@ function delayedUpdateStack() {
 
 //Commands
 
-function textCommand(cmd, params) {
+async function textCommand(cmd, params) {
     if (cmd == "light") {
         if (energybar.autoload == false) {
             loadBar(energybar, energyBarLoadTime);
@@ -279,8 +290,8 @@ function textCommand(cmd, params) {
             if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
                 updateTimeline("You can't gather that.");
             } else {
-                addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
                 delayedUpdateTimeline("You gathered " + simplifyNumber(targetResource.amount) + " " + targetResource.name + ".", targetResource.delay);
+                addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
             }
         } else {
             updateTimeline("You can't gather that.");
@@ -410,7 +421,7 @@ function loadBar(bar, seconds) {
             bar.dispatchEvent(loadBarEvent);
             clearInterval(id);
         } else {
-            op = (Date.now() - startTime)/(endTime - startTime)
+            op = Math.pow((Date.now() - startTime)/(endTime - startTime),2)
             bar.style.opacity = Math.ceil(op*1000)/1000;
             //document.getElementById("bar_percent").innerHTML = Math.ceil(op*100);
         }
@@ -549,6 +560,23 @@ function updateResources()
 
     //Update display
     updateResourceDisplay();
+
+}
+
+//CULTIST FUNCTIONS
+function cultistRecruit() {
+
+}
+
+function cultistKill() {
+
+}
+
+function cultistAssign() {
+
+}
+
+function cultistUnassign() {
 
 }
 

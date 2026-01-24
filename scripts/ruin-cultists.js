@@ -1,3 +1,8 @@
+/// <reference path="ruin-buildings.js" />
+/// <reference path="ruin-events.js" />
+/// <reference path="ruin-script.js" />
+/// <reference path="../lib/jquery.3.7.0.js" />
+
 var cultistNameList = [
     "Augustine",
     "Anastasia",
