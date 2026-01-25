@@ -119,6 +119,7 @@ h1 {
     padding-top: 12px;
     padding-left: 6px;
     padding-right: 6px;
+    font-synthesis: none;
 }
 
 .timeline-outer {
@@ -168,15 +169,26 @@ h1 {
     opacity: 0.8;
 }
 
-.timeline .text-god {
+/* TEXT LINE STYLES <P> */
+.timeline .textstyle-ruin {
     font-family: "alexander-quill", sans-serif;
     font-weight: 400;
     font-style: normal;
     font-size: 18px;
-    color: var(--color-accent4);
+    color: var(--color-accent);
 }
 
-.timeline .text-keyword-user {
+.timeline .textstyle-whisper {
+    font-style: italic;
+}
+
+.timeline .textstyle-regular {
+    font-style: normal;
+}
+
+
+/* INLINE TEXT EMPHASIS STYLES <SPAN> */
+.timeline .textstyle-keyword-user {
     font-weight: 700;
     color: var(--color-accent2);
 }
@@ -185,7 +197,6 @@ h1 {
     font-weight: 700;
     color: var(--color-accent2);
 }
-
 
 .timeline strong {
     font-weight: 700;

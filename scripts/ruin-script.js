@@ -1,5 +1,6 @@
 /// <reference path="ruin-buildings.js" />
 /// <reference path="ruin-events.js" />
+/// <reference path="ruin-script-helpers.js" />
 /// <reference path="../lib/jquery.3.7.0.js" />
 
 //SET INITIAL VARIABLES
@@ -85,6 +86,205 @@ var buildingDict = {
 //COMMANDS, TIMELINE, TEXT PARSING
 //--------------------------------
 
+
+
+//Timeline Management Functions
+
+function updateTimeline(string, { style = "regular", asHtml = false, alwaysScroll = false } = {} ){
+    const p = document.createElement("p");
+    p.className = `${style} fade-text`;
+    
+    // check if we want to pass the string as string or html
+    if (asHtml) {
+        p.innerHTML = string;
+    }
+    else {
+        p.textContent = string;
+    }
+
+    const toScroll = isScrollPositionAtBottom();
+    timeline.appendChild(p);
+    if (toScroll || alwaysScroll) scrollToBottom(timeline);
+
+    return p; //in case of future modification usage
+}
+
+function isScrollPositionAtBottom() {
+    return timeline.scrollTop + timeline.clientHeight >= timeline.scrollHeight -2; //-2 to account for minor rounding differences
+}
+
+
+async function write(text, { style = "regular", delayCycles = 0, asHtml = false, alwaysScroll = false } = {}) {
+    allowInput = false;
+
+    if (delayCycles > 0) {
+        
+        //create ellipsis element
+        const pEllipsis = document.createElement("p");
+        pEllipsis.className = style;
+        timeline.appendChild(pEllipsis);
+
+        //animate ellipsis element
+        for (let d = 0; d < delayCycles; d++) {
+            pEllipsis.textContent = ".";
+            await wait(500);
+            pEllipsis.textContent = "..";
+            await wait(500);
+            pEllipsis.textContent = "...";
+            await wait(500);
+        }
+
+        updateTimeline(text, { style: style, asHtml: asHtml, alwaysScroll: alwaysScroll});
+        pEllipsis.remove();
+    }
+    else {
+        updateTimeline(text, { style: style, asHtml: asHtml, alwaysScroll: alwaysScroll});
+    }
+       
+    
+    allowInput = true;
+}
+
+//Commands
+
+async function textCommand(verb, object) {
+
+    //BUILD
+    if (verb == "build") {
+        let targetBuilding = buildingDict[object[0]];
+
+        if (object[0] == undefined) {
+            await write("What do you want to build?");
+            restrictedCommandInput = "build";
+        }
+        else if (targetBuilding != undefined) {
+            //check if building has prerequisite and fulfilled
+            if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] <= 0) {
+                await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
+            } else if(targetBuilding == buildingAltar) {
+                if(hasEnoughResources(targetBuilding.cost)) {
+                    buildBuilding(targetBuilding);
+                } else {
+                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                }
+            } else {
+                if(targetBuilding.quota != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) {
+                    await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
+                } else if (hasEnoughResources(targetBuilding.cost)) {
+                    buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
+                    await write(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
+                } else {
+                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                }
+            }
+            
+        }
+        else {
+            await write("You can't build that.");
+        }
+    }
+
+    //GATHER
+    else if (verb == "gather") {
+        let targetResource = gatherableResources[object[0]];
+
+        if (object[0] == undefined) {
+            await write("What do you want to gather?"); //to change syntax
+            restrictedCommandInput = "gather";
+        }
+        else if (targetResource != undefined) {
+            if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
+                await write("You can't gather that.");
+            } else {
+                await write(`You gathered ${simplifyNumber(targetResource.amount)} ${targetResource.name}.`, { delayCycles: targetResource.delay });
+                addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
+            }
+        } else {
+            await write("You can't gather that.");
+        }
+    }
+
+    //TAKE
+    else if (verb == "take") {
+        if (object[0] == undefined)
+        {
+            await write("What do you want to take?");
+            restrictedCommandInput = "take";
+        }
+        else if (object[0] == "cube" || stringArrayMatches(object, ["mysterious", "cube"])) //to add multi-word handling
+        {
+            if(!eventVarMysteriousCube && event1.played) {
+                eventVarMysteriousCube = true;
+                await write("You take the " + textStyleKeyword("mysterious cube") + ".");
+                await playEvent(event2);
+            } else {
+                await write("You can't take that.");
+            }
+        }
+        else if (object[0] == "scraps" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scrap"])) {
+            if(!eventVarStoneDebris && event2.played) {
+                eventVarStoneDebris = true;
+
+                addResource("scrap", 1);
+                await playEvent(event3);
+            } else {
+                await write("You can't take that.");
+            }
+        } else {
+            await write("You can't take that.");
+        }
+    }
+
+    //CHEATS
+    else if (verb == "divine") {
+        if (object[0] == "village") {
+            buildBuilding(buildingDict.shrine);
+            buildBuilding(buildingDict.lumberyard);
+            buildBuilding(buildingDict.lumbermill);
+            buildBuilding(buildingDict.quarry);
+            buildBuilding(buildingDict.stonecutter);
+            buildBuilding(buildingDict.storehouse);
+            buildBuilding(buildingDict.farm);
+            await write("With a flurry of light, buildings rise around you.", { style: "textstyle-ruin" });
+        }
+        else {
+            await write("A bright glow engulfs you briefly, then fizzles out.", { style: "textstyle-ruin" });
+        }
+    }
+}
+
+
+//UI, GRAPHICAL ELEMENTS
+//--------------------------------
+
+const fadeUpdate = setInterval(fadeText, 100); //Creates recurring check to fade-in new text
+
+function scrollToBottom(container) {
+    container.scrollTop = container.scrollHeight;
+}
+
+
+//Fade text is done via a css trick - the javascript will remove the fade-text class after a set interval, however, since the paragraph style has a transition setting for opacity, the text will fade in with a delay.
+function fadeText() {
+    // to optimise.
+    text = document.getElementsByClassName("fade-text");
+    if (text[0] === undefined) {
+        return;
+    } else {
+        //using only array [0] gets around for-loop and also makes a surprisingly nice delay
+        text[0].classList.remove("fade-text");
+    }
+}
+
+inputbox.addEventListener("keyup", function (event) {
+    event.preventDefault();
+    if (event.code === "Enter" && allowInput == true) {
+        parseInputText();
+        //updateTimeline(currentTextString, "regular");
+        inputbox.value = "";
+    }
+});
+
 //Text Parsing and Stylisation
 
 function singleCase(string) {
@@ -147,8 +347,8 @@ function stringArrayMatches(inputStringArray, referenceStringArray) {
 }
 
 function parseInputText() {
-    var currentString = document.getElementById("input_textbox").value;
-    var cleanedString = removePunctuation(currentString.toLowerCase());
+    const currentString = document.getElementById("input_textbox").value;
+    const cleanedString = removePunctuation(currentString.toLowerCase());
 
     if(restrictedCommandInput != "") {
         textCommand(restrictedCommandInput, firstWord(cleanedString));
@@ -156,218 +356,85 @@ function parseInputText() {
         return;
     }
 
-    var command = firstWord(cleanedString);
-    var keyword_index = commandList.indexOf(command);
+    let command = firstWord(cleanedString);
+    let keyword_index = commandList.indexOf(command);
+    
     if (keyword_index > -1) {
         textCommand(command, followingWords(cleanedString));
         console.log(followingWords(cleanedString));
     } else {
-        updateTimeline(currentString, "text-god");
-    }
-}
-
-//Timeline Management Functions
-
-function updateTimeline(string, { style = "regular", asHtml = true } = {} ){
-    const p = document.createElement("p");
-    p.className = `${style} fade-text`;
-    
-    // check if we want to pass the string as string or html
-    if (asHtml) {
-        p.innerHTML = string;
-    }
-    else {
-        p.textContent = string;
-    }
-
-    const toScroll = isScrollPositionAtBottom();
-    timeline.appendChild(p);
-    if (toScroll) scrollToBottom(timeline);
-
-    return p; //in case of future modification usage
-}
-
-function isScrollPositionAtBottom() {
-    return timeline.scrollTop + timeline.clientHeight >= timeline.scrollHeight -2; //-2 to account for minor rounding differences
-}
-
-
-async function write(text, { style = "regular", delayCycles = 0, asHtml = true } = {}) {
-    allowInput = false;
-
-    if (delayCycles > 0) {
-        
-        //create ellipsis element
-        const pEllipsis = document.createElement("p");
-        pEllipsis.className = "regular";
-        timeline.appendChild(pEllipsis);
-
-        //animate ellipsis element
-        for (let d = 0; d < delayCycles; d++) {
-            pEllipsis.textContent = ".";
-            await wait(500);
-            pEllipsis.textContent = "..";
-            await wait(500);
-            pEllipsis.textContent = "...";
-            await wait(500);
-        }
-
-        updateTimeline(text, { style: style, asHtml: asHtml});
-        pEllipsis.remove();
-    }
-    else {
-        updateTimeline(text, { style: style, asHtml: asHtml});
-    }
-       
-    
-    allowInput = true;
-}
-
-//Commands
-
-async function textCommand(verb, object) {
-
-    //BUILD
-    if (verb == "build") {
-        var targetBuilding = buildingDict[object[0]];
-
-        if (object[0] == undefined) {
-            await write("What do you want to build?");
-            restrictedCommandInput = "build";
-        }
-        else if (targetBuilding != undefined) {
-            //check if building has prerequisite and fulfilled
-            if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] <= 0) {
-                await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
-            } else if(targetBuilding == buildingAltar) {
-                if(hasEnoughResources(targetBuilding.cost)) {
-                    buildBuilding(targetBuilding);
-                } else {
-                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
-                }
-            } else {
-                if(targetBuilding.quota != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) {
-                    await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
-                } else if (hasEnoughResources(targetBuilding.cost)) {
-                    buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
-                    await write(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
-                } else {
-                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
-                }
-            }
-            
-        }
-        else {
-            await write("You can't build that.");
-        }
-    }
-
-    //GATHER
-    else if (verb == "gather") {
-        var targetResource = gatherableResources[object[0]];
-
-        if (object[0] == undefined) {
-            await write("What do you want to gather?"); //to change syntax
-            restrictedCommandInput = "gather";
-        }
-        else if (targetResource != undefined) {
-            if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
-                await write("You can't gather that.");
-            } else {
-                await write(`You gathered ${simplifyNumber(targetResource.amount)} ${targetResource.name}.`, { delayCycles: targetResource.delay });
-                addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
-            }
-        } else {
-            await write("You can't gather that.");
-        }
-    }
-
-    //TAKE
-    else if (verb == "take") {
-        if (object[0] == undefined)
-        {
-            await write("What do you want to take?");
-            restrictedCommandInput = "take";
-        }
-        else if (object[0] == "cube" || stringArrayMatches(object, ["mysterious", "cube"])) //to add multi-word handling
-        {
-            if(!eventVarMysteriousCube && event1.played) {
-                eventVarMysteriousCube = true;
-                await write("You take the " + textStyleKeyword("mysterious cube") + ".");
-                await playEvent(event2);
-            } else {
-                await write("You can't take that.");
-            }
-        }
-        else if (object[0] == "scraps" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scrap"])) {
-            if(!eventVarStoneDebris && event2.played) {
-                eventVarStoneDebris = true;
-
-                addResource("scrap", 1);
-                await playEvent(event3);
-            } else {
-                await write("You can't take that.");
-            }
-        } else {
-            await write("You can't take that.");
-        }
-    }
-
-    //CHEATS
-    else if (verb == "divine") {
-        if (object[0] == "village") {
-            buildBuilding(buildingDict.shrine);
-            buildBuilding(buildingDict.lumberyard);
-            buildBuilding(buildingDict.lumbermill);
-            buildBuilding(buildingDict.quarry);
-            buildBuilding(buildingDict.stonecutter);
-            buildBuilding(buildingDict.storehouse);
-            buildBuilding(buildingDict.farm);
-            await write("With a flurry of light, buildings rise around you.", { style: "text-god" });
-        }
-        else {
-            await write("A bright glow engulfs you briefly, then fizzles out.", { style: "text-god" });
-        }
+        updateTimeline(currentString, "textstyle-ruin");
     }
 }
 
 
-//UI, GRAPHICAL ELEMENTS
-//--------------------------------
 
-var fadeUpdate = setInterval(fadeText, 100); //Creates recurring check to fade-in new text
+// Structural helpers
 
-function scrollToBottom(container) {
-    container.scrollTop = container.scrollHeight;
+// TextStyle Converter
+function textStyleToClass(style) {
+    const map = {
+        regular: "textstyle-regular",
+        ruin: "textstyle-ruin",
+        whisper: "textstyle-whisper"
+    };
+    return map[style] ?? "textstyle-regular";
 }
 
 
-//Fade text is done via a css trick - the javascript will remove the fade-text class after a set interval, however, since the paragraph style has a transition setting for opacity, the text will fade in with a delay.
-function fadeText() {
-    // to optimise.
-    text = document.getElementsByClassName("fade-text");
-    if (text[0] === undefined) {
-        return;
-    } else {
-        //using only array [0] gets around for-loop and also makes a surprisingly nice delay
-        text[0].classList.remove("fade-text");
-    }
+function normaliseEventString(text) {
+    // This function checks for raw string input and converts to L() syntax
+    if (typeof text === "string") return L(text);
+    return text;
 }
 
-inputbox.addEventListener("keyup", function (event) {
-    event.preventDefault();
-    if (event.code === "Enter" && allowInput == true) {
-        parseInputText();
-        //updateTimeline(currentTextString, "regular");
-        inputbox.value = "";
-    }
-});
 
+//Inline Markdown
+function parseInlineMarkdown(t) {
+    return t;
+}
 
 
 
 //EVENTS AND BUTTONS (TO BE EXPANDED)
 //--------------------------------
+
+//EVENT FUNCTIONS
+async function playEvent(_EventID)
+{
+    //check if prerequisite event has already fired
+    if(!_EventID.preReq || !_EventID.preReq.played) return false;
+
+    //automatically insert delay based on length of previous text
+    let prevTextLength = 0;
+
+    for(const textLine of _EventID.text) {
+        const entry = normaliseEventString(textLine);
+        const html = parseInlineMarkdown(entry.t);
+
+        const autoDelay = Math.max(Math.floor(prevTextLength / 50), 1); //compute autoDelay - 1 second per 50 characters, min 1 second
+        
+
+        await write(
+            html, {
+                asHtml: 1, //write as HTML since this is trusted and has been parsed with inline markdown
+                ...entry.opts, //put in entry.opts first, then overwrite with properties that have specific logic
+                delayCycles: entry.opts?.delayCycles ?? autoDelay, //set delayCycles: check if entry has a delayCycles option and use it; if not, use autoDelay.
+                style: textStyleToClass(entry.opts?.textStyle ?? "regular"),
+                alwaysScroll: true //always scroll event text! don't want player to miss stuff
+            }
+        );
+        prevTextLength = entry.t.length;
+    }
+    _EventID.played = (_EventID.played ?? 0) + 1; //increment event played counter (can be used as boolean or serial)
+    prevTextLength = 0;
+
+    if(_EventID.onEventCompleteFunction) {
+        _EventID.onEventCompleteFunction();
+    }
+}
+
+//COMMUNE / BIG BUTTON
 var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
@@ -435,45 +502,30 @@ squareButton.addEventListener("click", function () {
 });
 
 
-//STORY FUNCTIONS
-async function playEvent(_EventID)
-{
-    //check if prerequisite event has already fired
-    if(_EventID.preReq.played >= 1) {
-        let prevTextLength = 0;
-        for(let i = 0; i < _EventID.text.length; i++) {
-            await write (_EventID.text[i], { delayCycles : Math.floor(prevTextLength / 50) + 1});
-            prevTextLength = _EventID.text[i].length;
-        }
-        _EventID.played += 1;
-        prevTextLength = 0;
-
-        if(_EventID.onEventCompleteFunction) {
-            _EventID.onEventCompleteFunction();
-        }
-    }
-}
+//Gamestate Inititialisation Functions
 
 async function startGame()
 {
-    //playEvent(event1); //proper game start
-    skipIntro(); //skips the long narrative intro
+    skipIntro(); return; //skips the long narrative intro. comment to deactivate
+    playEvent(event1); //proper game start
 }
 
 async function skipIntro()
 {
     event1.played = 1;
     event2.played = 1;
-    event3.played = 1;
+    //event3.played = 1;
 
     eventVarMysteriousCube = true;
     eventVarStoneDebris = true;
     addResource("scrap", 1);
 
+    playEvent(event3);
+    /*
     const truncatedLines = event3.text.slice(-2);
     for (const line of truncatedLines) {
-        await write(line);
-    }
+        await write(line, {asHtml: 1});
+    }*/
 }
 
 //PROCESS FUNCTIONS
