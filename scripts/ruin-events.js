@@ -138,5 +138,5 @@ var event6 = {
 
 //Special Events
 function eventSpecialActivateButton() {
-    loadBar(squareButton, squareButtonLoadTime);
+    reloadButton();
 }

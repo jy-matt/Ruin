@@ -346,22 +346,23 @@ function stringArrayMatches(inputStringArray, referenceStringArray) {
     return false;
 }
 
-function parseInputText() {
+async function parseInputText() {
     const currentString = document.getElementById("input_textbox").value;
     const cleanedString = removePunctuation(currentString.toLowerCase());
 
     if(restrictedCommandInput != "") {
-        textCommand(restrictedCommandInput, firstWord(cleanedString));
+        const verb = restrictedCommandInput;
         restrictedCommandInput = "";
+        await textCommand(verb, [firstWord(cleanedString)]);
         return;
     }
 
     let command = firstWord(cleanedString);
     let keyword_index = commandList.indexOf(command);
-    
+
     if (keyword_index > -1) {
-        textCommand(command, followingWords(cleanedString));
-        console.log(followingWords(cleanedString));
+        await textCommand(command, followingWords(cleanedString));
+        console.log(command, followingWords(cleanedString));
     } else {
         updateTimeline(currentString, "textstyle-ruin");
     }
@@ -439,52 +440,55 @@ var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
 async function commune() {
+
     if(event5.played == 0) {
         playEvent(event5);
+        reloadButton(21);
         return;
     }
     if(event6.played == 0) {
         playEvent(event6);
+        reloadButton(6);
         return;
     }
 
-
-
+    reloadButton();
     updateResources();
+
+    return;
 }
 
-async function loadBar(bar, seconds) {
-    //harvest from bar
-    if (bar.loaded == true) {
-        await commune();
-        bar.classList.remove("clickable");
-    }
+// cosmetic and mechanical functions to handle button loading and unloading
+async function reloadButton(seconds = squareButtonLoadTime) {
 
     //sets the selected bar to load for n seconds
     var op = 0;
-    var id = setInterval(frame, 100); // n minimum 20 for accurate background load. rewrite function to update value accurately according to time, while display updates in a recurring function similar to fade
+    var id = setInterval(frame, 50); // n minimum 20 for accurate background load. rewrite function to update value accurately according to time, while display updates in a recurring function similar to fade
     var startTime = Date.now();
     var endTime = startTime + (seconds*1000);
 
-    //unload (to put in other function)
-    bar.loaded = false;
-    bar.style.boxShadow = "0px 0px 0px var(--color-light-alt)";
-
     function frame() {
         if (Date.now() > endTime) {
-            bar.style.opacity = 100;
+            squareButton.style.opacity = 100;
             document.getElementById("squareButton_percent").innerHTML = "";
-            bar.loaded = true;
-            bar.classList.add("clickable");
-            bar.style.boxShadow = "0px 0px 30px var(--color-light-alt)";
-            bar.dispatchEvent(loadBarEvent);
+            squareButton.loaded = true;
+            squareButton.classList.add("clickable");
+            squareButton.style.boxShadow = "0px 0px 30px var(--color-light-alt)";
+            squareButton.dispatchEvent(loadBarEvent);
             clearInterval(id);
         } else {
             op = Math.pow((Date.now() - startTime)/(endTime - startTime),2)
-            bar.style.opacity = Math.ceil(op*1000)/1000;
+            squareButton.style.opacity = Math.ceil(op*1000)/1000;
             //document.getElementById("bar_percent").innerHTML = Math.ceil(op*100);
         }
     }
+}
+
+async function unloadButton() {
+    squareButton.classList.remove("clickable");
+    squareButton.loaded = false;
+    squareButton.style.opacity = 0;
+    squareButton.style.boxShadow = "0px 0px 0px var(--color-light-alt)";
 }
 
 /*
@@ -495,9 +499,10 @@ function autoLoad(bar, seconds) {
 }
     */
 
-squareButton.addEventListener("click", function () {
+squareButton.addEventListener("click", async function () {
     if (squareButton.loaded == true && allowInput) {
-        loadBar(squareButton, squareButtonLoadTime);
+        unloadButton();
+        await commune();
     }
 });
 
