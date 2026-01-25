@@ -27,20 +27,7 @@ var buildingAltar = {
     description: "",
     quota: 1,
     cost: {
-        light: 0,
-        stone: 1,
-        wood: 0,
-        food: 0,
-        gold: 0,
-        cultists: 0
-    },
-    production: {
-        light: 0,
-        stone: 0,
-        wood: 0,
-        food: 0,
-        gold: 0,
-        cultists: 0
+        scrap: 1
     },
     notifyOnBuild: 0,
     onBuildFunction: () => playEvent(event4)

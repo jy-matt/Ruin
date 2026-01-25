@@ -65,7 +65,7 @@ var event2 = {
     text: [
         "The dim shapes at the end of the hallway come into focus.",
         "A niche, and the shattered remains of a pedestal.",
-        "Around it lie scattered fragments and broken <strong>stones</strong>."        
+        "Around it lie scattered fragments and <strong>scraps</strong> of stone."        
     ],
     choices: "",
     played: 0
@@ -97,10 +97,44 @@ var event4 = {
     ],
     choices: "",
     played: 0,
-    onEventCompleteFunction: eventSpecialActivateLight
+    onEventCompleteFunction: eventSpecialActivateButton
+}
+
+var event5 = {
+    id: 5,
+    name: "First Commune",
+    preReq: event4,
+    nextEvent: "",
+    text: [
+        "AT LAST",
+        "The words crash through your mind, a violent exclamation in the utter silence of the ruined hallway.",
+        "I AWAKEN!",
+        "BUT I AM...",
+        "REDUCED.",
+        "...",
+        "WHERE ARE MY PEOPLE?",
+        "You look around - only darkness surrounds you, dimly lit by the warm glow of the cube that rests upon the altar.",
+        "On the back wall of the niche, the dim light illuminates worn carvings.",
+        "Images of multitudes, kneeling before a many-limbed, many-faced figure; their palms upturned."
+    ],
+    choices: "",
+    played: 0
+}
+
+var event6 = {
+    id: 6,
+    name: "First Commune 2",
+    preReq: event5,
+    nextEvent: "",
+    text: [
+        "YOU",
+        "WILL YOU SERVE?",
+    ],
+    choices: "",
+    played: 0
 }
 
 //Special Events
-function eventSpecialActivateLight() {
-    loadBar(energybar, energyBarLoadTime);
+function eventSpecialActivateButton() {
+    loadBar(squareButton, squareButtonLoadTime);
 }

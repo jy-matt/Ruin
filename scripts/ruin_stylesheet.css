@@ -10,6 +10,9 @@
     --color-light-alt: #DFD6A7;
     --color-accent: #F8C466;
     --color-accent2: #A9CBB7;
+    --color-accent3: #804E49;
+    --color-accent4: #DB504A;
+    --color-accent5: #6E8387;
 }
 
 ::selection {
@@ -170,7 +173,7 @@ h1 {
     font-weight: 400;
     font-style: normal;
     font-size: 18px;
-    color: var(--color-light-alt);
+    color: var(--color-accent4);
 }
 
 .timeline .text-keyword-user {

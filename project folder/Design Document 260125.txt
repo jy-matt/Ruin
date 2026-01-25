@@ -1,0 +1,268 @@
+# 1  CONCEPT
+
+RUIN is a text-based cult management game where the player sacrifices certainty, community, and self to unlock communion with a god — until they must decide whether to resist or be consumed.
+
+## 1.1 Design Principles
+
+- **Minimalist, Diegetic UI**
+    - Minimalist UI design
+    - Prioritise diegetic implementation of UI elements
+    - Streamlined actions and resources
+- **Atmosphere-Forward Gameplay**
+    - Every part of the game should contribute to the atmosphere
+    - Mechanics support the feel of managing a cult and communicating with the unknown
+        - Text input is preparation, Commune is revelation
+- **Meaningful Choices**
+    - Tension and sacrifice (but without true failure state)
+    - Multiple strategies (?)
+    - Multiple endings
+
+What the game is NOT:
+
+- Not a text adventure
+- Not a text-based sandbox - the objective is not for natural-language free text input, just to use command entry as an interface
+- It’s a turn-based resource management / worker placement / base building game with narrative elements, presented through a text-based console and UI
+
+## 1.2 Core Gameplay Loop
+
+- Progression is measured by presses of the big button; time passes every commune. The only time-based mechanic is the commune button, so progression is effectively turn-based. This removes the problem of inconsistent time tracking when not focused, etc, and also makes it easier to save progress since there is a definitive gamestate per turn. Cannot press the button when an event is underway - produces an error tooltip / shake / feedback (”you are busy”)
+- During one turn, conduct resource management. Treat this like a turn-based management game.
+    - gather resources (in early game only)
+    - build things with available resources, if possible
+    - conduct special actions e.g. sacrifice things to turn them into other resources, execute commands on cooldown
+    - re-assign Hands to different tasks
+- At end of turn, COMMUNE.
+    - if progression objectives are met, initiate progression events
+    - potentially, initiate new random events depending on prereqs
+    - if progression objectives are not met, produce generic or flavor dialogue and advance turn
+        - flavor dialogue - combination of repeatable generic lines, and non-repeatable lore lines
+    - Process turn-based resource generation and costs
+    - Process any other end of turn effects
+- Repeat; new buildings and completed objectives unlock new buildings / resources / mechanics
+
+# 2  SYSTEMS
+
+## 2.1 Game Interface
+
+- The game consists of two primary components - a text box containing text descriptions of events, actions, narrative, etc; and a large “button” that represents communication with the god, RUIN.
+- Secondary UI elements help to convey information once the players starts to unlock more mechanics of the game
+    - Tooltips
+    - Resource bar
+    - Quest objectives
+    - Reference panels
+        - Built buildings
+        - Unbuilt buildings
+        - Available ritual
+        - List of available verbs
+
+## 2.2 Game Systems
+
+### 2.2.1 Verbs
+
+Verbs are the actions by which the player interacts with the world and makes management decisions
+
+- Gather, Build [x], Prepare [Ritual of …],
+- Burn - you unlock this at the end for fighting RUIN? need to sacrifice your resources and followers to fight it
+- Most verbs are transitive, some are intransitive
+
+### 2.2.2 Resources
+
+Don’t focus on the mundane (no stone, wood, etc), focus on the occult and mysterious. Minimalist UI can’t accommodate so many resources anyway.
+
+- Scrap
+- Flesh
+- Hands
+- Script
+- Fervor
+    - Scale that reverts to zero if untended
+    - Changes the color of the cube?
+    - What are the effects?
+        - negative fervor more likely to have bad events and flavor text
+        - positive fervor more likely to have good things
+        - but it shouldn’t be a win-more lose-more mechanic, maybe it just provides narrative tension or pushes back the game timeline
+
+### 2.2.3 Buildings
+
+Each building has a single purpose - production, utility, buffs, etc.
+
+Building upgrades can either be sub-buildings / new buildings, or multiples of particular buildings (e.g. shelters)
+
+List of buildings (brainstorming only)
+
+- Altar, Shrine, Temple,
+- Producers:
+    - Crusher - Scrap
+        - Scrapheap
+    - Hearth - Flesh
+        - Fleshpit
+    - Shelter - Hands
+    - Apocryphage - Script
+    - Chantry - Fervor
+- Ossuary / Crypt / Charnel - sacrifice mechanics
+- Esotericum - knowledge mechanics
+- Ledger - unlocks resource UI
+- Mason - unlocks blueprint UI
+- Pulpit - unlocks Fervor UI
+- Syllabarium - unlocks verb UI
+- Scrapforge - workshop building
+- Beacon - increase attraction rate of new hands
+- Votary -  new hands bring bonus resources
+- Reliquary - flesh > fervor
+- Military buildings: guard against fighting events
+    - Watchtower, Trapdoor
+
+### 2.2.4 Rituals
+
+(implement this later - it’s a bit of an extra feature that is not core to the gameplay loop but still important for lategame experience)
+
+Rituals are a means to provide temporary buffs, boosts, resources, etc outside of building new buildings. Generally they will require some cost and provide some benefit - but they should not be too easy or spammable to reduce fatigue and minmax ritual spamming.
+
+Rituals allow for the re-introduction of complexity and manual participation during the midgame in a more rewarding way, even as more mundane tasks such as scrap and flesh collection are automated.
+
+- Only one ritual can be performed per turn
+- Maybe later unlocks allow for the more basic rituals to also be automated by assigning hands to perform them?
+
+## 2.3 Gameplay Progression
+
+Gameplay complexity evolves as the game advances. New unlockable buildings and abilities primarily add to possible capabilities, although there will also be buildings that increase output or make management easier.
+
+### 2.3.1 Progression Phases
+
+- Introduction - narrative block, small player interactions
+- Earlygame - player does things mostly manually, maybe 1 follower
+- Midgame - some minor automation with a few followers, resources still feel like they are hard earned. maybe the player still needs to manually assign / unassign hands at times
+- Lategame - basic resources are largely automated, player is dealing with optimising more complex mechanics such as rituals and fervor and trying to complete major sidequests. make choices that are “capstones” to certain playstyles or strategies
+- Endgame - The player has unlocked most or all buildings, and resources are easily flowing in. The final quest is heavily telegraphed (e.g. collect lots of resources and components for a final ritual of summoning) so that the player knows the game is building towards a conclusion.
+
+### 2.3.2 Informal Resource Hierarchy
+
+Resources are “equal”, so to speak, but based on the game’s systems and available unlocks, some resources will be easier or harder to get than others at different stages of the game. Resource storage limits prevent players from idling out and stockpiling too many resources (maybe negative -resource events if the player is too idle or they have too much stockpiled? not sure if this is redundant punishment with storage limits) 
+
+- Scrap - easiest material resource; around midgame this should be somewhat easier to obtain
+- Flesh - constant pressure; at midgame it should be manageable but the player cannot overextend or they will be in flesh deficit.
+- Hands - Hands are always going to be a limiting factor because they determine the player’s automation capabilities and resource flow.
+- Script - Script is a mid-lategame resource that is required to unlock higher-level complex buildings and rituals
+- Fervor - always a balance, but new buildings will help the player steer fervor more easily. how to make fervor a challenge? maybe more random events affecting fervor that make it “noisy”? or late-game negative pressures to fervor / reversion to mean pressure based on population (this makes sense)?
+
+## 2.4 Event Framework
+
+Events are put into an event pool and are drawn every Commune. Only one event occurs per Commune.
+
+### 2.4.1 Event Implementation
+
+- Events only occur upon Commune, so they are predictable sequences that do not get interrupted by random other text, only the player’s input (because everything else is also tied to Commune - no random time-based popups).
+- Events are encoded in a data structure as objects
+    - Conditions
+    - Sequence - need to have framework / helper function for event sequences playing out; e.g. lines of narrative text; followed by player input - its own function that requires input validation, prompting, etc; followed by conclusion based on inputs
+    - Effects (resource changes, buffs, setting other event flags)
+
+### 2.4.2 Event Selection
+
+- Event selection is based on a hierarchy + random selection:
+    - main quest events are drawn first if objectives are fulfilled,
+    - followed by sidequests,
+    - followed by flavor events,
+    - followed by “no event” (god flavor text only)
+
+# 3  NARRATIVE
+
+The game is narrative-driven; game mechanics and progression exist in concert with the story that the game is trying to tell.
+
+## 3.1 Core Narrative
+
+### 3.1.1 Introduction
+
+Plot threads
+
+Game begins in media res, with the player entering the temple at the midpoint of their quest and being recruited into the god’s service.
+
+- player’s dead companions outside
+- original quest to explore the ruin?
+- nearby town has been beset by strange evil forces (now you)
+- who is the god and what is its purpose
+- second-person narrator: it’s the god lol
+
+### 3.1.x Ending
+
+Climax:
+
+1. Summon RUIN, player makes a choice whether to submit (Yes/No). Yes is a threefold choice that confirms the player’s desire to bend their will to RUIN. The player joins with RUIN to spread destruction over the world.
+2. If no, the player fights(?) RUIN using the available resources and artifacts - sacrificing what was built. Unlocks a new verb, Burn. The player destroys RUIN and seals them away for good.
+3. If the player has completed some preconditions, including finding the true name of Ruin, they are able to achieve the “good” ending of bringing RUIN to their senses.
+
+The player is also shown the consequences of their actions re: sidequests
+
+Introduction:
+
+1. Player enters the cave, finds a mysterious cube on the floor.
+2. Taking the cube causes the player to hear whispers, directing them to build a shrine.
+3. Build a simple shrine first - teaches player how to use basic materials
+    1. Take stone
+    2. Build/repair/rebuild shrine
+4. Once shrine is built, pressing the button makes RUIN speak to the player and recruit them into their service
+
+Earlygame progression:
+
+1. Build various basic buildings to enable gathering of resources
+2. Gather resources manually
+3. Build other basic buildings to recruit followers, introduce new mechanics
+4. Key new mechanics: EXPLORE, SACRIFICE
+
+Midgame progression:
+
+1. Build advanced buildings that enable passive gathering of resources
+2. Recruit more cult members to operate buildings
+3. Build buildings that unlock advanced resources
+4. Make choices that give exclusive bonuses
+
+Lategame progression:
+
+1. Build buildings that accelerate/trivialise gathering of basic resources
+2. Make choices that minmax certain playstyles
+3. Use advanced resources in endgame mechanics e.g. rituals, quests
+4. Goal - accumulate x amount of resources for the summoning ritual
+
+## 3.2 Lore
+
+RUIN is an old, buried god of a dead civilisation. They were formerly the apex god of their faith, but have been completely forgotten as their people died out and the faith was lost. Slumbering in limbo for centuries, they have been consumed with anger, heartache and a craving for the power that they once had.
+
+RUIN is angry and forgotten and weak; they want to recapture the devotion of the masses, the power gained from being worshipped by thousands. They see you as a tool by which they might climb out of irrelevance and into the mortal realm once again. They also know that they are stuck in a forgotten ruin and uniquely vulnerable, so they seek to manipulate you into believing in their power and bringing them back to prominence.
+
+In their ancient form they were not a vengeful god, they were in fact one of peace and prosperity and the patron god of the old civilisation. But centuries of languishing in the void has corrupted their thoughts and personality. (This is the third positive ending - rehabilitating them)
+
+## 3.3 Narrative Events
+
+Narrative events come under a few different categories: main quest (progression), side quests, and flavor events.
+
+### 3.3.1 Main Quest
+
+The main narrative thread is concerned with the player’s relationship with RUIN, their building of the cult, and their advancement of RUIN’s cause. Main quests are tracked in the objective tracker.
+
+- For example - RUIN desires more worshippers. Grow your cult to have 5 Hands.
+    - This will involve collecting resources to build more Shelters, building said shelters, then waiting for random new cultist events to fire.
+
+### 3.3.2 Side Quests
+
+Sidequests have the player work towards stockpiling or expending resources in a certain way, as an additional direction of gameplay that supplements or competes with the main quest objectives. These side quests would also inform the endings of the game - 1. Influence the big ending, 2. Influence the “RPG montage” of what happens to other characters, villagers, etc.
+
+Need to figure out UI for this though - don’t want a complicated quest log. Maybe auto-resolve as soon as conditions are fulfilled?
+
+Alternatively, such “quests” are single events or event chains which are resolved when they pop up; players are given a choice as to what decision they make (e.g. give resources to help villagers) and the event consequences resolve immediately.
+
+- For example - nearby villagers are suspicious and demand to know what’s going on. You can either give them tribute to pacify them, or take violent action. This could spawn a follow-up event chain involving collaboration or conflict with the village.
+
+### 3.3.3 Flavor Events
+
+Flavor events are random occurrences which serve to give life to the game world and tell the player more about the world.
+
+- For example - one of the cultists is lucky while out hunting, +1 Flesh obtained.
+
+# 4  MISC
+
+## 4.1 Implementation Notes
+
+Mechanics:
+
+- Resource drain - some things have passive resource costs, e.g. all assigned hands use flesh every turn
+- Recruiting - automatic with random probability if the base has capacity for hands
+- Fail state - if the player “fails” or encounters bad events, they might lose hands or lose resources. but since they don’t lose capacity and infrastructure, they can just wait it out until new hands arrive via passive attraction. fervor also drifts back towards 0 if nothing is being done.

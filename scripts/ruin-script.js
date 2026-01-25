@@ -7,18 +7,17 @@
 //Get HTML fields
 var inputbox = document.getElementById("input_textbox");
 var timeline = document.getElementById("timeline");
-var energybar = document.getElementById("bar_energy");
+var squareButton = document.getElementById("squareButton");
 
 var resourceDisplay = {
-    light: document.getElementById("num-resource-light"),
-    stone: document.getElementById("num-resource-stone"),
-    wood: document.getElementById("num-resource-wood"),
-    food: document.getElementById("num-resource-food"),
-    gold: document.getElementById("num-resource-gold"),
-    cultists: document.getElementById("num-resource-cultists")
+    scrap: document.getElementById("num-resource-scrap"),
+    flesh: document.getElementById("num-resource-flesh"),
+    script: document.getElementById("num-resource-script"),
+    hands: document.getElementById("num-resource-hands"),
+    fervor: document.getElementById("num-resource-fervor"),
 }
 
-var energyBarLoadTime = 5;
+var squareButtonLoadTime = 5;
 
 //Text parsing variables
 var currentTextString = "";
@@ -34,8 +33,29 @@ var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", 
 //Gamestate
 const game = {
     turn: 0,
-    resources: { scrap: 0, flesh: 0, hands: 0, script: 0, fervor: 0 },
-    buildings: { },
+    resources: { 
+        scrap: 0,
+        flesh: 0,
+        script: 0,
+        hands: 0,
+        fervor: 0
+    },
+    buildings: {
+        shrine: 0,
+        //temple: 0,
+        altar: 0,
+        //lodge: 0,
+        lumberyard: 0,
+        lumbermill: 0,
+        quarry: 0,
+        stonecutter: 0,
+        storehouse: 0,
+        farm: 0,
+        //mine: 0,
+        //mausoleum: 0,
+        //dungeon: 0
+        stockpile: 0,
+    },
     eventFlags: { },
     actionQueue: [],
 };
@@ -43,38 +63,11 @@ const game = {
 //Resources
 var resourceCap = 20;
 
-var resources = {
-    light: 0,
-    stone: 0,
-    wood: 0,
-    food: 0,
-    gold: 0,
-    cultists: 0
-}
-
 var gatherableResources = {
-    stone: { name: "stone", preReq: "quarry", delay: 1, amount: 1 },
-    wood: { name: "wood", preReq: "lumberyard", delay: 1, amount: 1 },
-    food: { name: "food", preReq: "storehouse", delay: 1, amount: 1 },
+    scrap: { name: "scrap", preReq: "quarry", delay: 1, amount: 1 },
+    flesh: { name: "flesh", preReq: "lumberyard", delay: 1, amount: 1 }
 }
 
-//Buildings
-var buildings = {
-    shrine: 0,
-    //temple: 0,
-    altar: 0,
-    //lodge: 0,
-    lumberyard: 0,
-    lumbermill: 0,
-    quarry: 0,
-    stonecutter: 0,
-    storehouse: 0,
-    farm: 0,
-    //mine: 0,
-    //mausoleum: 0,
-    //dungeon: 0
-    stockpile: 0,
-}
 
 var buildingDict = {
     shrine: buildingShrine,
@@ -244,16 +237,16 @@ async function textCommand(verb, object) {
         }
         else if (targetBuilding != undefined) {
             //check if building has prerequisite and fulfilled
-            if (targetBuilding.preReq != undefined && buildings[targetBuilding.preReq] <= 0) {
+            if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] <= 0) {
                 await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
-            } else if(targetBuilding = buildingAltar) {
+            } else if(targetBuilding == buildingAltar) {
                 if(hasEnoughResources(targetBuilding.cost)) {
                     buildBuilding(targetBuilding);
                 } else {
                     await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
                 }
             } else {
-                if(targetBuilding.quota != undefined && buildings[targetBuilding.name] >= targetBuilding.quota) {
+                if(targetBuilding.quota != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) {
                     await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
                 } else if (hasEnoughResources(targetBuilding.cost)) {
                     buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
@@ -306,11 +299,11 @@ async function textCommand(verb, object) {
                 await write("You can't take that.");
             }
         }
-        else if (object[0] == "stone" || stringArrayMatches(object, ["fragment", "fragments", "stones"])) {
+        else if (object[0] == "scraps" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scrap"])) {
             if(!eventVarStoneDebris && event2.played) {
                 eventVarStoneDebris = true;
 
-                addResource("stone", 1);
+                addResource("scrap", 1);
                 await playEvent(event3);
             } else {
                 await write("You can't take that.");
@@ -378,17 +371,25 @@ inputbox.addEventListener("keyup", function (event) {
 var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
-async function harvestEnergyBar() {
-    addResource("light", 1);
-    //updateTimeline("You have " + resourceLight + " light energy.");
-    await write("You gained 1 light energy.");
-    updateResourceDisplay();
+async function commune() {
+    if(event5.played == 0) {
+        playEvent(event5);
+        return;
+    }
+    if(event6.played == 0) {
+        playEvent(event6);
+        return;
+    }
+
+
+
+    updateResources();
 }
 
 async function loadBar(bar, seconds) {
     //harvest from bar
     if (bar.loaded == true) {
-        await harvestEnergyBar();
+        await commune();
         bar.classList.remove("clickable");
     }
 
@@ -405,7 +406,7 @@ async function loadBar(bar, seconds) {
     function frame() {
         if (Date.now() > endTime) {
             bar.style.opacity = 100;
-            document.getElementById("bar_percent").innerHTML = "";
+            document.getElementById("squareButton_percent").innerHTML = "";
             bar.loaded = true;
             bar.classList.add("clickable");
             bar.style.boxShadow = "0px 0px 30px var(--color-light-alt)";
@@ -419,15 +420,17 @@ async function loadBar(bar, seconds) {
     }
 }
 
+/*
 function autoLoad(bar, seconds) {
     bar.addEventListener("loadBarEvent", function (e) { setTimeout(loadBar, 500, bar, seconds) });
     loadBar(bar, seconds);
     bar.autoload = true;
 }
+    */
 
-energybar.addEventListener("click", function () {
-    if (energybar.autoload == false && energybar.loaded == true) {
-        loadBar(energybar, energyBarLoadTime);
+squareButton.addEventListener("click", function () {
+    if (squareButton.loaded == true && allowInput) {
+        loadBar(squareButton, squareButtonLoadTime);
     }
 });
 
@@ -460,8 +463,14 @@ async function startGame()
 async function skipIntro()
 {
     event1.played = 1;
+    event2.played = 1;
+    event3.played = 1;
 
-    const truncatedLines = event1.text.slice(-2);
+    eventVarMysteriousCube = true;
+    eventVarStoneDebris = true;
+    addResource("scrap", 1);
+
+    const truncatedLines = event3.text.slice(-2);
     for (const line of truncatedLines) {
         await write(line);
     }
@@ -470,13 +479,15 @@ async function skipIntro()
 //PROCESS FUNCTIONS
 function buildBuilding(bd)
 {
-    for(_ResourceType in resources) {
-        resourceCostSubtraction(_ResourceType, bd.cost[_ResourceType]);
+    for(const _ResourceType in game.resources) {
+        const resourceCost = Number(bd.cost?.[_ResourceType] ?? 0);
+        resourceCostSubtraction(_ResourceType, resourceCost);
     }
 
-    buildings[bd.name] += 1;
+    game.buildings[bd.name] += 1;
 
     updateBuildingVariables();
+    updateResourceDisplay();
 
     if(bd.onBuildFunction) {
         bd.onBuildFunction();
@@ -486,10 +497,10 @@ function buildBuilding(bd)
 function updateBuildingVariables()
 {
     //update resource cap
-    if(buildings.stockpile == 0) {
+    if(game.buildings.stockpile == 0) {
         resourceCap = 20;
     } else {
-        resourceCap = buildings.stockpile * buildingDict.stockpile.properties.storage;
+        resourceCap = game.buildings.stockpile * buildingDict.stockpile.properties.storage;
     }
 }
 
@@ -497,20 +508,20 @@ function updateBuildingVariables()
 //RESOURCE FUNCTIONS
 function updateResourceDisplay()
 {
-    for(_ResourceType in resources) {
-        resourceDisplay[_ResourceType].innerHTML = simplifyNumber(Math.floor(resources[_ResourceType]));
+    for(const _ResourceType in game.resources) {
+        resourceDisplay[_ResourceType].innerHTML = simplifyNumber(Math.floor(game.resources[_ResourceType]));
     }
 
 }
 
 function addResource(res, amount)
 {
-    resources[res] += amount;
+    game.resources[res] += amount;
 
-    if (resources[res] > resourceCap) {
-        resources[res] = resourceCap;
-    } else if(resources[res] < 0) {
-        resources[res] = 0;
+    if (game.resources[res] > resourceCap) {
+        game.resources[res] = resourceCap;
+    } else if(game.resources[res] < 0) {
+        game.resources[res] = 0;
     }
 
     updateResourceDisplay();
@@ -518,12 +529,16 @@ function addResource(res, amount)
 
 function resourceCostSubtraction(res, amount)
 {
-    resources[res] -= amount;
+    //two checks to validate that resources are valid numbers, if not set to 0
+    amount = Number(amount) || 0;
+    game.resources[res] = Number(game.resources[res]) || 0;
 
-    if(resources[res] < 0) {
-        resources[res] = 0;
-    } else if (resources[res] > resourceCap) {
-        resources[res] = resourceCap;
+    game.resources[res] -= amount;
+
+    if(game.resources[res] < 0) {
+        game.resources[res] = 0;
+    } else if (game.resources[res] > resourceCap) {
+        game.resources[res] = resourceCap;
     }
 
     //does not update display values at this point
@@ -531,9 +546,9 @@ function resourceCostSubtraction(res, amount)
 
 function hasEnoughResources(resourceList)
 {
-    for (_ResourceType in resourceList) {
-        console.log(resourceList[_ResourceType] + " " + resources[_ResourceType]);
-        if (resourceList[_ResourceType] > resources[_ResourceType]) {
+    for (const _ResourceType in resourceList) {
+        console.log(resourceList[_ResourceType] + " " + game.resources[_ResourceType]);
+        if (resourceList[_ResourceType] > game.resources[_ResourceType]) {
             return false;
         }
     }
@@ -546,28 +561,28 @@ function updateResources()
 
     //Calculate resources gained from buildings
     //basic formula: building resource production * num buildings
-    for (_BuildingType in buildings) {
-        if (buildings[_BuildingType] > 0 && buildingDict[_BuildingType].production != undefined) {
-            for (_ResourceType in resources) {
+    for (const _BuildingType in game.buildings) {
+        if (game.buildings[_BuildingType] > 0 && buildingDict[_BuildingType].production != undefined) {
+            for (const _ResourceType in game.resources) {
                 if(newResources[_ResourceType] == undefined) {
-                    newResources[_ResourceType] = buildingDict[_BuildingType].production[_ResourceType] * buildings[_BuildingType];
+                    newResources[_ResourceType] = buildingDict[_BuildingType].production[_ResourceType] * game.buildings[_BuildingType];
                 } else {
-                    newResources[_ResourceType] += buildingDict[_BuildingType].production[_ResourceType] * buildings[_BuildingType];
+                    newResources[_ResourceType] += buildingDict[_BuildingType].production[_ResourceType] * game.buildings[_BuildingType];
                 }
             }
         }
     }
 
-    for(_ResourceType in resources)
+    for(_ResourceType in game.resources)
     {
         if (newResources[_ResourceType] != undefined) {
 
-            resources[_ResourceType] += newResources[_ResourceType];
+            game.resources[_ResourceType] += newResources[_ResourceType];
 
-            if (resources[_ResourceType] > resourceCap) {
-                resources[_ResourceType] = resourceCap;
-            } else if(resources[_ResourceType] < 0) {
-                resources[_ResourceType] = 0;
+            if (game.resources[_ResourceType] > resourceCap) {
+                game.resources[_ResourceType] = resourceCap;
+            } else if(game.resources[_ResourceType] < 0) {
+                game.resources[_ResourceType] = 0;
             }
         }
     }
@@ -602,11 +617,10 @@ function wait(ms) {
 
 //INITIALISATION
 //--------------------------------
-//loadBar(energybar, 0);
-energybar.autoload = false;
+//loadBar(squareButton, 0);
+squareButton.autoload = false;
 inputbox.focus();
 
 updateResourceDisplay();
-updateResourcesInterval = setInterval(updateResources, 1000);
 
 startGame();
