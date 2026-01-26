@@ -1,3 +1,4 @@
+// ruin-script-helpers.js
 /// <reference path="ruin-events.js" />
 /// <reference path="ruin-script.js" />
 /// <reference path="ruin-buildings.js" />
@@ -13,4 +14,13 @@ const whisper = (t, opts = {}) => L(t, { textStyle: "whisper", ...opts }); //whi
 const rL = (t, opts = {}) => L(t, { textStyle: "regular", ...opts }); //regular line styling - redundant?
 
 // Saved Phrases
-const DOTS = ( delay = 1, opts = {} ) => L("...", { delayCycles: delay, ...opts });
+const dots = ( delay = 1, opts = {} ) => L("...", { delayCycles: delay, ...opts });
+
+//Non-Text Event Lines
+const E = (op, data = {}) => ({ op, ...data});
+
+const WAIT_CMD = (cfg) => E("wait_cmd", cfg);
+const WAIT_INPUT = (cfg) => E("wait_input", cfg);
+const EFFECTS = (...effects) => E("effects", {effects});
+
+//Effect Syntax: type, fn

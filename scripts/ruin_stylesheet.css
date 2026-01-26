@@ -175,11 +175,13 @@ h1 {
     font-weight: 400;
     font-style: normal;
     font-size: 18px;
+    letter-spacing: 0.1em;
     color: var(--color-accent);
 }
 
 .timeline .textstyle-whisper {
     font-style: italic;
+    color: var(--color-light-alt);
 }
 
 .timeline .textstyle-regular {

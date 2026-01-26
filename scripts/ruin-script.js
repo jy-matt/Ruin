@@ -1,3 +1,4 @@
+//ruin-script.js
 /// <reference path="ruin-buildings.js" />
 /// <reference path="ruin-events.js" />
 /// <reference path="ruin-script-helpers.js" />
@@ -18,21 +19,22 @@ var resourceDisplay = {
     fervor: document.getElementById("num-resource-fervor"),
 }
 
-var squareButtonLoadTime = 5;
+let communeLoadTimeMin = 5;
+let communeLoadTimeVar = 5;
 
 //Text parsing variables
-var currentTextString = "";
-var allowInput = true;
-var textDelay = false;
-var restrictedCommandInput = "";
-var currentTextLength = 0;
-var punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
-var timelineStack = [];
+let currentTextString = "";
+let allowInput = true;
+let textDelay = false;
+let restrictedCommandInput = "";
+let currentTextLength = 0;
+const punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+let timelineStack = [];
 
-var commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather", "divine"];
+let commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather", "divine"];
 
 //Gamestate
-const game = {
+let game = {
     turn: 0,
     resources: { 
         scrap: 0,
@@ -62,15 +64,15 @@ const game = {
 };
 
 //Resources
-var resourceCap = 20;
+let resourceCap = 20;
 
-var gatherableResources = {
+const gatherableResources = {
     scrap: { name: "scrap", preReq: "quarry", delay: 1, amount: 1 },
     flesh: { name: "flesh", preReq: "lumberyard", delay: 1, amount: 1 }
 }
 
 
-var buildingDict = {
+const buildingDict = {
     shrine: buildingShrine,
     altar: buildingAltar,
     lumberyard: buildingLumberyard,
@@ -213,20 +215,20 @@ async function textCommand(verb, object) {
         }
         else if (object[0] == "cube" || stringArrayMatches(object, ["mysterious", "cube"])) //to add multi-word handling
         {
-            if(!eventVarMysteriousCube && event1.played) {
+            if(!eventVarMysteriousCube) {
                 eventVarMysteriousCube = true;
                 await write("You take the " + textStyleKeyword("mysterious cube") + ".");
-                await playEvent(event2);
+                await playEvent("intro.intro.02");
             } else {
                 await write("You can't take that.");
             }
         }
         else if (object[0] == "scraps" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scrap"])) {
-            if(!eventVarStoneDebris && event2.played) {
+            if(!eventVarStoneDebris) {
                 eventVarStoneDebris = true;
 
                 addResource("scrap", 1);
-                await playEvent(event3);
+                await playEvent("intro.intro.03");
             } else {
                 await write("You can't take that.");
             }
@@ -403,14 +405,19 @@ function parseInlineMarkdown(t) {
 //EVENT FUNCTIONS
 async function playEvent(_EventID)
 {
-    //check if prerequisite event has already fired
-    if(!_EventID.preReq || !_EventID.preReq.played) return false;
+    //at this point, event prerequisites should already have been validated
+    //this function only executes the event sequence and handles all sub-events
+
+    //get event from event const
+    const event = events[_EventID];
+    if(!events[_EventID]) return;
 
     //automatically insert delay based on length of previous text
     let prevTextLength = 0;
 
-    for(const textLine of _EventID.text) {
-        const entry = normaliseEventString(textLine);
+    for(const eventEntry of event.sequence) {
+        //currently, only play text lines. Need to add logic to handle interaction etc
+        const entry = normaliseEventString(eventEntry);
         const html = parseInlineMarkdown(entry.t);
 
         const autoDelay = Math.max(Math.floor(prevTextLength / 50), 1); //compute autoDelay - 1 second per 50 characters, min 1 second
@@ -427,12 +434,55 @@ async function playEvent(_EventID)
         );
         prevTextLength = entry.t.length;
     }
-    _EventID.played = (_EventID.played ?? 0) + 1; //increment event played counter (can be used as boolean or serial)
+    //need to revise played logic
+    //_EventID.played = (_EventID.played ?? 0) + 1; //increment event played counter (can be used as boolean or serial)
     prevTextLength = 0;
 
-    if(_EventID.onEventCompleteFunction) {
-        _EventID.onEventCompleteFunction();
+    concludeEvent(_EventID);
+}
+
+async function concludeEvent(_EventID) {
+    await processEffects(events[_EventID].outcomes.default.effects);
+    incrementEventPlayed(_EventID);
+    //play default outcome (default outcome is ALWAYS played because this function is the 'cleanup' function post event; it does not know what choices were made during event interactions)
+}
+
+async function processEffects(effects = []) {
+    for(const effect of effects) {
+        switch(effect.type) { //switch - advanced if/else structure with parameter matching
+            case "call": {
+                const fn = effectFns[effect.fnID];
+                if(!fn) {
+                    console.warn(`Unknown effect function '${effect.fnID}'`, effect);
+                    break;
+                }
+                await fn(effect.args ?? {});
+                break;
+            }
+              
+
+            default: {
+                console.warn("Unknown effect type:", effect.type, effect);
+                break;
+            }
+        }
     }
+}
+
+function populateEventFlags() {
+    for(const eventID of Object.keys(events)) {
+        if(game.eventFlags[eventID] === undefined) {
+            game.eventFlags[eventID] = 0;
+        }
+    }
+}
+
+function incrementEventPlayed(_EventID) {
+    game.eventFlags[_EventID] += 1;
+}
+
+function eventPlayed(_EventID) {
+    return game.eventFlags[_EventID];
 }
 
 //COMMUNE / BIG BUTTON
@@ -441,29 +491,30 @@ var loadBarEvent = new CustomEvent("loadBarEvent");
 
 async function commune() {
 
-    if(event5.played == 0) {
-        playEvent(event5);
+    if(eventPlayed("intro.intro.05") == 0) {
+        playEvent("intro.intro.05");
         reloadButton(21);
         return;
     }
-    if(event6.played == 0) {
-        playEvent(event6);
+    if(eventPlayed("intro.intro.06") == 0) {
+        playEvent("intro.intro.06");
         reloadButton(6);
         return;
     }
 
-    reloadButton();
+    const reloadTime = Math.floor(communeLoadTimeMin + Math.random()*communeLoadTimeVar)
+    reloadButton(reloadTime);
     updateResources();
 
     return;
 }
 
 // cosmetic and mechanical functions to handle button loading and unloading
-async function reloadButton(seconds = squareButtonLoadTime) {
+async function reloadButton(seconds = communeLoadTimeMin) {
 
     //sets the selected bar to load for n seconds
     var op = 0;
-    var id = setInterval(frame, 50); // n minimum 20 for accurate background load. rewrite function to update value accurately according to time, while display updates in a recurring function similar to fade
+    var id = setInterval(frame, 20); // n minimum 20 for accurate background load. rewrite function to update value accurately according to time, while display updates in a recurring function similar to fade
     var startTime = Date.now();
     var endTime = startTime + (seconds*1000);
 
@@ -473,7 +524,7 @@ async function reloadButton(seconds = squareButtonLoadTime) {
             document.getElementById("squareButton_percent").innerHTML = "";
             squareButton.loaded = true;
             squareButton.classList.add("clickable");
-            squareButton.style.boxShadow = "0px 0px 30px var(--color-light-alt)";
+            squareButton.style.boxShadow = "0px 0px 40px var(--color-light-alt)";
             squareButton.dispatchEvent(loadBarEvent);
             clearInterval(id);
         } else {
@@ -511,26 +562,41 @@ squareButton.addEventListener("click", async function () {
 
 async function startGame()
 {
+    populateEventFlags();
+    console.log(game.eventFlags);
     skipIntro(); return; //skips the long narrative intro. comment to deactivate
-    playEvent(event1); //proper game start
+    playEvent("intro.intro.01"); //proper game start
 }
 
 async function skipIntro()
 {
-    event1.played = 1;
-    event2.played = 1;
-    //event3.played = 1;
+    incrementEventPlayed("intro.intro.01");
+    incrementEventPlayed("intro.intro.02");
 
     eventVarMysteriousCube = true;
     eventVarStoneDebris = true;
     addResource("scrap", 1);
 
-    playEvent(event3);
+    playEvent("intro.intro.03");
     /*
     const truncatedLines = event3.text.slice(-2);
     for (const line of truncatedLines) {
         await write(line, {asHtml: 1});
     }*/
+}
+
+async function skipIntro2()
+{
+    incrementEventPlayed("intro.intro.01");
+    incrementEventPlayed("intro.intro.02");
+    incrementEventPlayed("intro.intro.03");
+    incrementEventPlayed("intro.intro.04");
+    incrementEventPlayed("intro.intro.05");
+
+    eventVarMysteriousCube = true;
+    eventVarStoneDebris = true;
+
+    playEvent("intro.intro.06");
 }
 
 //PROCESS FUNCTIONS

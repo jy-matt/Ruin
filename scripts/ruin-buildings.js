@@ -1,3 +1,4 @@
+//ruin-buildings.js
 /// <reference path="ruin-events.js" />
 /// <reference path="ruin-script.js" />
 /// <reference path="ruin-script-helpers.js" />
@@ -31,7 +32,7 @@ var buildingAltar = {
         scrap: 1
     },
     notifyOnBuild: 0,
-    onBuildFunction: () => playEvent(event4)
+    onBuildFunction: () => playEvent("intro.intro.04")
 }
 
 var buildingLumberyard = {
