@@ -7,7 +7,7 @@
 
 const buildings = {
     
-    "altar": {
+    "buildingAltar": {
         name: "altar",
         plural: "altars",
         description: "",
@@ -17,7 +17,9 @@ const buildings = {
         },
         notifyOnBuild: 0,
         onBuildFunction: () => playEvent("intro.intro.04")
-    }
+    },
+
+
 
 }
 

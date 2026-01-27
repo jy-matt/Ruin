@@ -43,22 +43,7 @@ let game = {
         hands: 0,
         fervor: 0
     },
-    buildings: {
-        shrine: 0,
-        //temple: 0,
-        altar: 0,
-        //lodge: 0,
-        lumberyard: 0,
-        lumbermill: 0,
-        quarry: 0,
-        stonecutter: 0,
-        storehouse: 0,
-        farm: 0,
-        //mine: 0,
-        //mausoleum: 0,
-        //dungeon: 0
-        stockpile: 0,
-    },
+    buildings: { },
     eventFlags: { },
     actionQueue: [],
     communeEventQueue: [],
@@ -76,17 +61,7 @@ const gatherableResources = {
 }
 
 
-const buildingDict = {
-    shrine: buildingShrine,
-    altar: buildingAltar,
-    lumberyard: buildingLumberyard,
-    lumbermill: buildingLumbermill,
-    quarry: buildingQuarry,
-    stonecutter: buildingStonecutter,
-    storehouse: buildingStorehouse,
-    farm: buildingFarm,
-    stockpile: buildingStockpile
-}
+const buildingDict = {}
 
 
 //COMMANDS, TIMELINE, TEXT PARSING
@@ -541,7 +516,7 @@ async function commune() {
         return;
     }*/
 
-    updateResources();
+    //updateResources();
    
     //Event Logic
     if(game.utilityFlags.communeEventQueueEnabled && game.communeEventQueue[0] != null) {
@@ -612,9 +587,10 @@ squareButton.addEventListener("click", async function () {
 async function startGame()
 {
     populateEventFlags();
+    populateBuildingDictAndFlags();
     console.log(game.eventFlags);
     deactivateInputBox();
-    skipIntro2(); return; //skips the long narrative intro. comment to deactivate
+    skipIntro3(); return; //skips the long narrative intro. comment to deactivate
     playEvent("intro.intro.01"); //proper game start
 }
 
@@ -652,24 +628,44 @@ async function skipIntro2()
     reloadButton(6);
 }
 
-//PROCESS FUNCTIONS
-function buildBuilding(bd)
+async function skipIntro3()
 {
+    incrementEventPlayed("intro.intro.01");
+    incrementEventPlayed("intro.intro.02");
+    incrementEventPlayed("intro.intro.03");
+    incrementEventPlayed("intro.intro.04");
+    incrementEventPlayed("intro.intro.05");
+    incrementEventPlayed("intro.intro.06");
+    incrementEventPlayed("intro.intro.07");
+
+    eventVarMysteriousCube = true;
+    eventVarStoneDebris = true;
+    game.buildings[getBuildingID("altar")] = 1;
+
+    activateInputBox();
+    inputbox.focus();
+    reloadButton();
+}
+
+//PROCESS FUNCTIONS
+function buildBuilding(_BuildingID)
+{
+    const building = getBuilding(_BuildingID)
     for(const _ResourceType in game.resources) {
-        const resourceCost = Number(bd.cost?.[_ResourceType] ?? 0);
+        const resourceCost = Number(building.cost?.[_ResourceType] ?? 0);
         resourceCostSubtraction(_ResourceType, resourceCost);
     }
 
-    game.buildings[bd.name] += 1;
+    game.buildings[_BuildingID] += 1;
 
-    updateBuildingVariables();
     updateResourceDisplay();
 
-    if(bd.onBuildFunction) {
-        bd.onBuildFunction();
+    if(building.onBuildFunction) {
+        building.onBuildFunction();
     }
 }
 
+/*
 function updateBuildingVariables()
 {
     //update resource cap
@@ -678,8 +674,28 @@ function updateBuildingVariables()
     } else {
         resourceCap = game.buildings.stockpile * buildingDict.stockpile.properties.storage;
     }
+} */
+
+function populateBuildingDictAndFlags() {
+    for(const buildingID of Object.keys(buildings)) {
+        if(game.buildings[buildingID] === undefined) {
+            game.buildings[buildingID] = 0;
+        }
+        if(buildingDict[buildingID] === undefined) {
+            buildingDict[getBuilding(buildingID).name] = buildingID;
+        }
+    }
+    console.log(game.buildings);
+    console.log(buildingDict);
 }
 
+function getBuilding(_BuildingID) {
+    return buildings[_BuildingID];
+}
+
+function getBuildingID(_BuildingName) {
+    return buildingDict[_BuildingName];
+}
 
 //RESOURCE FUNCTIONS
 function updateResourceDisplay()
