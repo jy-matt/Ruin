@@ -61,6 +61,10 @@ let game = {
     },
     eventFlags: { },
     actionQueue: [],
+    communeEventQueue: [],
+    utilityFlags: {
+        communeEventQueueEnabled: 1,
+    },
 };
 
 //Resources
@@ -217,7 +221,6 @@ async function textCommand(verb, object) {
         {
             if(!eventVarMysteriousCube) {
                 eventVarMysteriousCube = true;
-                await write("You take the " + textStyleKeyword("mysterious cube") + ".");
                 await playEvent("intro.intro.02");
             } else {
                 await write("You can't take that.");
@@ -286,6 +289,14 @@ inputbox.addEventListener("keyup", function (event) {
         inputbox.value = "";
     }
 });
+
+function deactivateInputBox() {
+    inputbox.readOnly = true;
+}
+
+function activateInputBox() {
+    inputbox.readOnly = false;
+}
 
 //Text Parsing and Stylisation
 
@@ -393,8 +404,27 @@ function normaliseEventString(text) {
 
 
 //Inline Markdown
-function parseInlineMarkdown(t) {
-    return t;
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function parseInlineMarkdown(text) {
+    if (text == null) return "";
+
+    let s = escapeHtml(text);
+
+    // ^strong^
+    s = s.replace(/\^([^^\n]+)\^/g, "<strong>$1</strong>");
+
+    // *italics*
+    s = s.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+
+    return s;
 }
 
 
@@ -409,7 +439,7 @@ async function playEvent(_EventID)
     //this function only executes the event sequence and handles all sub-events
 
     //get event from event const
-    const event = events[_EventID];
+    const event = getEvent(_EventID);
     if(!events[_EventID]) return;
 
     //automatically insert delay based on length of previous text
@@ -456,7 +486,7 @@ async function processEffects(effects = []) {
                     console.warn(`Unknown effect function '${effect.fnID}'`, effect);
                     break;
                 }
-                await fn(effect.args ?? {});
+                await fn(effect.args ?? []);
                 break;
             }
               
@@ -485,13 +515,22 @@ function eventPlayed(_EventID) {
     return game.eventFlags[_EventID];
 }
 
+async function queueCommuneEvent(_EventID) {
+    game.communeEventQueue.unshift(_EventID);
+    console.log(game.communeEventQueue);
+}
+
+function getEvent(_EventID) {
+    return events[_EventID];
+}
+
 //COMMUNE / BIG BUTTON
 var loadBarEvent = new CustomEvent("loadBarEvent");
 
 
 async function commune() {
 
-    if(eventPlayed("intro.intro.05") == 0) {
+    /*if(eventPlayed("intro.intro.05") == 0) {
         playEvent("intro.intro.05");
         reloadButton(21);
         return;
@@ -500,11 +539,21 @@ async function commune() {
         playEvent("intro.intro.06");
         reloadButton(6);
         return;
+    }*/
+
+    updateResources();
+   
+    //Event Logic
+    if(game.utilityFlags.communeEventQueueEnabled && game.communeEventQueue[0] != null) {
+        const eventID = game.communeEventQueue.shift();
+        const reloadTime = events[eventID].communeReloadTime ?? communeLoadTimeMin;
+        playEvent(eventID);
+        reloadButton(reloadTime);
+        return;
     }
 
-    const reloadTime = Math.floor(communeLoadTimeMin + Math.random()*communeLoadTimeVar)
-    reloadButton(reloadTime);
-    updateResources();
+    reloadButton(communeLoadTimeMin);
+    
 
     return;
 }
@@ -564,7 +613,8 @@ async function startGame()
 {
     populateEventFlags();
     console.log(game.eventFlags);
-    skipIntro(); return; //skips the long narrative intro. comment to deactivate
+    deactivateInputBox();
+    skipIntro2(); return; //skips the long narrative intro. comment to deactivate
     playEvent("intro.intro.01"); //proper game start
 }
 
@@ -583,6 +633,8 @@ async function skipIntro()
     for (const line of truncatedLines) {
         await write(line, {asHtml: 1});
     }*/
+    activateInputBox();
+    inputbox.focus();
 }
 
 async function skipIntro2()
@@ -597,6 +649,7 @@ async function skipIntro2()
     eventVarStoneDebris = true;
 
     playEvent("intro.intro.06");
+    reloadButton(6);
 }
 
 //PROCESS FUNCTIONS
@@ -742,7 +795,7 @@ function wait(ms) {
 //--------------------------------
 //loadBar(squareButton, 0);
 squareButton.autoload = false;
-inputbox.focus();
+
 
 updateResourceDisplay();
 

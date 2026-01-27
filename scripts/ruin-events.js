@@ -5,8 +5,8 @@
 /// <reference path="../lib/jquery.3.7.0.js" />
 
 //Event Variables
-var eventVarMysteriousCube = false;
-var eventVarStoneDebris = false;
+let eventVarMysteriousCube = false;
+let eventVarStoneDebris = false;
 
 const events = {
 
@@ -58,12 +58,14 @@ const events = {
             L("You get up and walk."),
             dots(),
             dots(),
-            L("The light comes from a small <strong>cube</strong> - perfect, beautiful, unassuming. It's lying on the ground."),
+            L("The light comes from a small ^cube^ - perfect, beautiful, unassuming. It's lying on the ground."),
             whisper("Take it.")
         ],
         outcomes: {
             default: {
-
+                effects: [
+                    { type: "call", fnID: "effectActivateAndFocusTextBox" }
+                ]
             }
         }
     },
@@ -75,9 +77,10 @@ const events = {
         tags: [], //tags for debugging and navigation
         preReq: {},
         sequence: [
+            L("You take the cube."),
             L("The dim shapes at the end of the hallway come into focus."),
             L("A niche, and the shattered remains of a pedestal."),
-            L("Around it lie scattered fragments and <strong>scraps</strong> of stone.")
+            L("Around it lie scattered fragments and ^scraps^ of stone.")
         ],
         outcomes: {
             default: {
@@ -119,7 +122,9 @@ const events = {
         outcomes: {
             default: {
                 effects: [
-                    { type: "call", fnID: "activateCommuneButton" }
+                    { type: "call", fnID: "effectActivateCommuneButton" },
+                    { type: "call", fnID: "effectQueueEvent", args: "intro.intro.05" },
+                    { type: "call", fnID: "effectDeactivateTextBox" },
                 ]
             }
         }
@@ -146,13 +151,64 @@ const events = {
         ],
         outcomes: {
             default: {
-                
+                effects: [
+                    { type: "call", fnID: "effectQueueEvent", args: "intro.intro.06" }
+                ]
             }
-        }
+        },
+        communeReloadTime: 21,
     },
 
     "intro.intro.06": {
         id: "intro.intro.06", //id
+        eventType: "intro",
+        repeatable: false,
+        tags: [], //tags for debugging and navigation
+        preReq: {},
+        sequence: [
+            ruin("YOU"),
+            ruin("WILL YOU SERVE?", {delayCycles: 3})
+        ],
+        outcomes: {
+            default: {
+                effects: [
+                    { type: "call", fnID: "effectQueueEvent", args: "intro.intro.07" }
+                ]
+            }
+        },
+        communeReloadTime: 6,
+    },
+
+    "intro.intro.07": {
+        id: "intro.intro.07", //id
+        eventType: "intro",
+        repeatable: false,
+        tags: [], //tags for debugging and navigation
+        preReq: {},
+        sequence: [
+            L("You kneel and offer your hands upturned, imitating the figures in the carving."),
+            ruin("YES. YOU WILL BUILD MY KINGDOM."),
+            L("Abruptly, your mind is assaulted by a flurry of images -"),
+            L("Towers, crumbled by the march of time", {delayCycles: 0}),
+            L("A figure sprawled before an altar", {delayCycles: 0}),
+            L("Glyphs etched in a ring of stone", {delayCycles: 0}),
+            L("Smiths working the bellows of a dozen forges", {delayCycles: 0}),
+            L("- and more, your mind scarcely comprehending image after image"),
+            L("The frantic deluge slows, and you begin to see two images in your mind's eye:", {delayCycles: 5}),
+            L("A rough assortment of ^scrap^ cobbled together into a ^workbench^, and a small ^hearth^ surrounded by crude implements."),
+            ruin("BEGIN THE WORK.")
+        ],
+        outcomes: {
+            default: {
+                effects: [
+                    { type: "call", fnID: "effectActivateAndFocusTextBox" }
+                ]
+            }
+        }
+    },
+
+    "intro.intro.08": {
+        id: "intro.intro.08", //id
         eventType: "intro",
         repeatable: false,
         tags: [], //tags for debugging and navigation
@@ -172,9 +228,22 @@ const events = {
 //Effect Functions
 const effectFns = {
     
-    activateCommuneButton: async () => {
+    effectActivateAndFocusTextBox: async () => {
+        activateInputBox();
+        inputbox.focus();
+    },
+
+    effectDeactivateTextBox: async () => {
+        deactivateInputBox();
+    },
+
+    effectActivateCommuneButton: async () => {
         reloadButton();
     },
+
+    effectQueueEvent: async (eventID) => {
+        queueCommuneEvent(eventID);
+    }
 
     //add other effect functions
 };

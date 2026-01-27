@@ -4,6 +4,23 @@
 /// <reference path="ruin-script-helpers.js" />
 /// <reference path="../lib/jquery.3.7.0.js" />
 
+
+const buildings = {
+    
+    "altar": {
+        name: "altar",
+        plural: "altars",
+        description: "",
+        max: 1,
+        cost: {
+            scrap: 1,
+        },
+        notifyOnBuild: 0,
+        onBuildFunction: () => playEvent("intro.intro.04")
+    }
+
+}
+
 var buildingNone = {
 
 }
