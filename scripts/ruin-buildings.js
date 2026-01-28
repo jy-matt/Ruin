@@ -19,7 +19,50 @@ const buildings = {
         onBuildFunction: () => playEvent("intro.intro.04")
     },
 
+    //this is a dummy building for the gather scrap action
+    "buildingGatherScrap": {
+        name: "dummy gatherscrap",
+        plural: "dummy gatherscrap",
+        description: "",
+        max: 1,
+        workable: 1,
+        production: {
+            scrap: 1
+        },
+        showInUI: false,
+        messages: {
+            onSelfWork: [
+                L("You search around for useful pieces of scrap."),
+                L("You check the tunnels for scraps of wood or stone.")
+            ],
+            onAlreadyWorking: L("You are already gathering scrap."),
+            onSuccessfulWork: [
+                L("You find a pile of rough-cut stones, perfect for building."),
+                L("You chance upon an old shelter in the ruins and take it apart for wood."),
+                L("You manage to scavenge some rotten planks and building material."),
+            ]
+        },
+    },
 
+    //this building is kind of a dummy, it's just a tutorial prerequisite to build other buildings
+    "buildingScrapForge": {
+        name: "Scrapforge",
+        plural: "",
+        description: "Allows you to build buildings.",
+        max: 1,
+        workable: 1,
+        cost: {
+            scrap: 1,
+        },
+        messages: {
+
+        },
+
+    },
+
+    "buildingHearth": {
+
+    }
 
 }
 

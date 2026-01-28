@@ -44,6 +44,12 @@ let game = {
         fervor: 0
     },
     buildings: { },
+    work: {
+        activeSelfJob: null,
+        hasAssignedSelfThisTurn: 0,
+        activeHandJobs: { },
+        assignedHandsTotal: 0,
+    },
     eventFlags: { },
     actionQueue: [],
     communeEventQueue: [],
@@ -58,10 +64,12 @@ let resourceCap = 20;
 const gatherableResources = {
     scrap: { name: "scrap", preReq: "quarry", delay: 1, amount: 1 },
     flesh: { name: "flesh", preReq: "lumberyard", delay: 1, amount: 1 }
-}
+};
+
+let tempResourcesDelta = {};
 
 
-const buildingDict = {}
+const buildingDict = {};
 
 
 //COMMANDS, TIMELINE, TEXT PARSING
@@ -130,107 +138,126 @@ async function write(text, { style = "regular", delayCycles = 0, asHtml = false,
 
 async function textCommand(verb, object) {
 
-    //BUILD
-    if (verb == "build") {
-        let targetBuilding = buildingDict[object[0]];
+    switch(verb) {
+        //BUILD
+        case "build":
+            let targetBuilding = buildingDict[object[0]];
 
-        if (object[0] == undefined) {
-            await write("What do you want to build?");
-            restrictedCommandInput = "build";
-        }
-        else if (targetBuilding != undefined) {
-            //check if building has prerequisite and fulfilled
-            if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] <= 0) {
-                await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
-            } else if(targetBuilding == buildingAltar) {
-                if(hasEnoughResources(targetBuilding.cost)) {
-                    buildBuilding(targetBuilding);
+            if (object[0] == undefined) {
+                await write("What do you want to build?");
+                restrictedCommandInput = "build";
+            }
+            else if (targetBuilding != undefined) {
+                //check if building has prerequisite and fulfilled
+                if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] <= 0) {
+                    await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
+                } else if(targetBuilding == buildingAltar) {
+                    if(hasEnoughResources(targetBuilding.cost)) {
+                        buildBuilding(targetBuilding);
+                    } else {
+                        await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                    }
                 } else {
-                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                    if(targetBuilding.quota != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) {
+                        await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
+                    } else if (hasEnoughResources(targetBuilding.cost)) {
+                        buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
+                        await write(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
+                    } else {
+                        await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
+                    }
+                }
+                
+            }
+            else {
+                await write("You can't build that.");
+            }
+            break;
+
+        //GATHER
+        case "gather":
+            let targetResource = gatherableResources[object[0]];
+
+            if (object[0] == undefined) {
+                await write("What do you want to gather?"); //to change syntax
+                restrictedCommandInput = "gather";
+            }
+            else if (object[0] == "scrap" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scraps"])) {
+                assignSelfToJob("buildingGatherScrap");
+            }
+            else if (targetResource != undefined) {
+                if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
+                    await write("You can't gather that.");
+                } else {
+                    await write(`You gathered ${simplifyNumber(targetResource.amount)} ${targetResource.name}.`, { delayCycles: targetResource.delay });
+                    addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
                 }
             } else {
-                if(targetBuilding.quota != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) {
-                    await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
-                } else if (hasEnoughResources(targetBuilding.cost)) {
-                    buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
-                    await write(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
-                } else {
-                    await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
-                }
-            }
-            
-        }
-        else {
-            await write("You can't build that.");
-        }
-    }
-
-    //GATHER
-    else if (verb == "gather") {
-        let targetResource = gatherableResources[object[0]];
-
-        if (object[0] == undefined) {
-            await write("What do you want to gather?"); //to change syntax
-            restrictedCommandInput = "gather";
-        }
-        else if (targetResource != undefined) {
-            if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
                 await write("You can't gather that.");
-            } else {
-                await write(`You gathered ${simplifyNumber(targetResource.amount)} ${targetResource.name}.`, { delayCycles: targetResource.delay });
-                addResource(targetResource.name, targetResource.amount); //note - to pass parameter as key, need to use square bracket syntax
             }
-        } else {
-            await write("You can't gather that.");
-        }
-    }
+            break;
 
-    //TAKE
-    else if (verb == "take") {
-        if (object[0] == undefined)
-        {
-            await write("What do you want to take?");
-            restrictedCommandInput = "take";
-        }
-        else if (object[0] == "cube" || stringArrayMatches(object, ["mysterious", "cube"])) //to add multi-word handling
-        {
-            if(!eventVarMysteriousCube) {
-                eventVarMysteriousCube = true;
-                await playEvent("intro.intro.02");
+        //WORK
+        case "work":
+
+            if (object[0] == undefined) {
+                await write("What do you want to work?");
+                restrictedCommandInput = "work";
+            }
+
+            break;
+
+        //TAKE
+        case "take":
+            if (object[0] == undefined)
+            {
+                await write("What do you want to take?");
+                restrictedCommandInput = "take";
+            }
+            else if (object[0] == "cube" || stringArrayMatches(object, ["mysterious", "cube"])) //to add multi-word handling
+            {
+                if(!eventVarMysteriousCube) {
+                    eventVarMysteriousCube = true;
+                    await playEvent("intro.intro.02");
+                } else {
+                    await write("You can't take that.");
+                }
+            }
+            else if (object[0] == "scraps" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scrap"])) {
+                if(!eventVarStoneDebris) {
+                    eventVarStoneDebris = true;
+
+                    addResource("scrap", 1);
+                    await playEvent("intro.intro.03");
+                } else {
+                    await write("You can't take that.");
+                }
             } else {
                 await write("You can't take that.");
             }
-        }
-        else if (object[0] == "scraps" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scrap"])) {
-            if(!eventVarStoneDebris) {
-                eventVarStoneDebris = true;
+            break;
 
-                addResource("scrap", 1);
-                await playEvent("intro.intro.03");
-            } else {
-                await write("You can't take that.");
+        //CHEATS
+        case "divine":
+            if (object[0] == "village") {
+                buildBuilding(buildingDict.shrine);
+                buildBuilding(buildingDict.lumberyard);
+                buildBuilding(buildingDict.lumbermill);
+                buildBuilding(buildingDict.quarry);
+                buildBuilding(buildingDict.stonecutter);
+                buildBuilding(buildingDict.storehouse);
+                buildBuilding(buildingDict.farm);
+                await write("With a flurry of light, buildings rise around you.", { style: "textstyle-ruin" });
             }
-        } else {
-            await write("You can't take that.");
-        }
-    }
+            else {
+                await write("A bright glow engulfs you briefly, then fizzles out.", { style: "textstyle-ruin" });
+            }
+            break;
 
-    //CHEATS
-    else if (verb == "divine") {
-        if (object[0] == "village") {
-            buildBuilding(buildingDict.shrine);
-            buildBuilding(buildingDict.lumberyard);
-            buildBuilding(buildingDict.lumbermill);
-            buildBuilding(buildingDict.quarry);
-            buildBuilding(buildingDict.stonecutter);
-            buildBuilding(buildingDict.storehouse);
-            buildBuilding(buildingDict.farm);
-            await write("With a flurry of light, buildings rise around you.", { style: "textstyle-ruin" });
-        }
-        else {
-            await write("A bright glow engulfs you briefly, then fizzles out.", { style: "textstyle-ruin" });
-        }
+        default:
+            await write("You are not understood.", {style: "textstyle-whisper"});
     }
+    
 }
 
 
@@ -377,6 +404,20 @@ function normaliseEventString(text) {
     return text;
 }
 
+async function writeEventString(text) {
+    const entry = normaliseEventString(text);
+    const html = parseInlineMarkdown(entry.t);
+
+    await write(
+        html, {
+            asHtml: 1, //write as HTML since this is trusted and has been parsed with inline markdown
+            ...entry.opts, //put in entry.opts first, then overwrite with properties that have specific logic
+            delayCycles: entry.opts?.delayCycles ?? 0, //set delayCycles: check if entry has a delayCycles option and use it; if not, use autoDelay.
+            style: textStyleToClass(entry.opts?.textStyle ?? "regular"),
+        }
+    );
+}
+
 
 //Inline Markdown
 function escapeHtml(s) {
@@ -517,6 +558,8 @@ async function commune() {
     }*/
 
     //updateResources();
+    processAllJobResources();
+    game.work.hasAssignedSelfThisTurn = 0;
    
     //Event Logic
     if(game.utilityFlags.communeEventQueueEnabled && game.communeEventQueue[0] != null) {
@@ -647,7 +690,7 @@ async function skipIntro3()
     reloadButton();
 }
 
-//PROCESS FUNCTIONS
+//BUILDING FUNCTIONS
 function buildBuilding(_BuildingID)
 {
     const building = getBuilding(_BuildingID)
@@ -664,17 +707,6 @@ function buildBuilding(_BuildingID)
         building.onBuildFunction();
     }
 }
-
-/*
-function updateBuildingVariables()
-{
-    //update resource cap
-    if(game.buildings.stockpile == 0) {
-        resourceCap = 20;
-    } else {
-        resourceCap = game.buildings.stockpile * buildingDict.stockpile.properties.storage;
-    }
-} */
 
 function populateBuildingDictAndFlags() {
     for(const buildingID of Object.keys(buildings)) {
@@ -695,6 +727,49 @@ function getBuilding(_BuildingID) {
 
 function getBuildingID(_BuildingName) {
     return buildingDict[_BuildingName];
+}
+
+async function printBuildingMessage(_BuildingID, messageID) {
+    const building = getBuilding(_BuildingID);
+    const buildingMessages = building.messages ?? null;
+    
+    if(buildingMessages == null) return;
+
+    let message = null;
+    if(buildingMessages[messageID] != null) {
+        if(buildingMessages[messageID].constructor === Array ) {
+            message = getRandomItem(buildingMessages[messageID]);
+        } else {
+            message = buildingMessages[messageID];
+        }
+    } else return;
+
+    await writeEventString(message);
+}
+
+function checkIfBuildingHasMessage(_BuildingID, messageID) {
+    return !!getBuilding(_BuildingID)?.messages?.[messageID];
+}
+
+//JOB FUNCTIONS
+async function assignSelfToJob(_BuildingID) {
+    if(game.work.hasAssignedSelfThisTurn == 1) {
+        if(checkIfBuildingHasMessage(game.work.activeSelfJob, "onAlreadyWorking")) {
+            await printBuildingMessage(game.work.activeSelfJob, "onAlreadyWorking");
+        }
+        else {
+            await write("You are already working.");
+        }
+    } else {
+        if(getBuilding(_BuildingID).workable) {
+            game.work.activeSelfJob = _BuildingID;
+            game.work.hasAssignedSelfThisTurn = 1;
+            await printBuildingMessage(_BuildingID, "onSelfWork");
+        } else {
+            await write("You can't work that.");
+        }
+    }
+    
 }
 
 //RESOURCE FUNCTIONS
@@ -719,6 +794,27 @@ function addResource(res, amount)
     updateResourceDisplay();
 }
 
+function processAllJobResources() {
+    const tempResources = {};
+    //process single self job building first
+    if(game.work.activeSelfJob) {
+        processBuildingResources(getBuilding(game.work.activeSelfJob), tempResources);
+        printBuildingMessage(game.work.activeSelfJob, "onSuccessfulWork");
+    }
+    
+    
+    for(res in tempResources) {
+        addResource(res, tempResources[res]);
+    }
+}
+
+function processBuildingResources(building, resourceList) {
+    if(!building.production) return;
+    massAddObjProps(resourceList, building.production);
+    console.log(resourceList);
+}
+
+/*
 function resourceCostSubtraction(res, amount)
 {
     //two checks to validate that resources are valid numbers, if not set to 0
@@ -783,6 +879,7 @@ function updateResources()
     updateResourceDisplay();
 
 }
+*/
 
 //CULTIST FUNCTIONS
 function cultistRecruit() {

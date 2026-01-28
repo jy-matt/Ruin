@@ -24,3 +24,23 @@ const WAIT_INPUT = (cfg) => E("wait_input", cfg);
 const EFFECTS = (...effects) => E("effects", {effects});
 
 //Effect Syntax: type, fn
+
+
+//misc functions
+function getRandomItem(arr) {
+    if (arr.length === 0) return undefined;
+    const randomIndex = Math.floor(Math.random()*arr.length);
+    return arr[randomIndex];
+}
+
+function massAddObjProps(mainObj, secondObj) {
+    //only works if all props are numbers!
+    for(prop in secondObj) {
+        if(mainObj[prop]) {
+            mainObj[prop] += secondObj[prop];
+        } else {
+            mainObj[prop] = secondObj[prop];
+        }
+        
+    }
+}
