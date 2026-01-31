@@ -44,3 +44,8 @@ function massAddObjProps(mainObj, secondObj) {
         
     }
 }
+
+function randomRoll(percentageChance) {
+    if(Math.random()*100 < percentageChance) return true;
+    return false;
+}

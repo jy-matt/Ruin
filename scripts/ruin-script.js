@@ -46,11 +46,13 @@ let game = {
     buildings: { },
     work: {
         activeSelfJob: null,
+        activeSelfJobConstruction: null,
         hasAssignedSelfThisTurn: 0,
         activeHandJobs: { },
         assignedHandsTotal: 0,
     },
     eventFlags: { },
+    buildingQueue: null,
     actionQueue: [],
     communeEventQueue: [],
     utilityFlags: {
@@ -134,6 +136,11 @@ async function write(text, { style = "regular", delayCycles = 0, asHtml = false,
     allowInput = true;
 }
 
+async function writeAsHTML(text, opts = {}) {
+    return write(text, {...opts, asHTML: true});
+}
+
+
 //Commands
 
 async function textCommand(verb, object) {
@@ -141,36 +148,14 @@ async function textCommand(verb, object) {
     switch(verb) {
         //BUILD
         case "build":
-            let targetBuilding = buildingDict[object[0]];
+            let targetBuildingID = buildingDict[object[0]];
 
-            if (object[0] == undefined) {
+            if (object[0] == undefined) { //if there is no target
                 await write("What do you want to build?");
                 restrictedCommandInput = "build";
             }
-            else if (targetBuilding != undefined) {
-                //check if building has prerequisite and fulfilled
-                if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] <= 0) {
-                    await write("You need to build a " + textStyleKeyword(firstCaps(targetBuilding.preReq)) + " first.");
-                } else if(targetBuilding == buildingAltar) {
-                    if(hasEnoughResources(targetBuilding.cost)) {
-                        buildBuilding(targetBuilding);
-                    } else {
-                        await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
-                    }
-                } else {
-                    if(targetBuilding.quota != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) {
-                        await write("You can't build any more " + textStyleKeyword(firstCaps(targetBuilding.plural)) + ".");
-                    } else if (hasEnoughResources(targetBuilding.cost)) {
-                        buildBuilding(targetBuilding); //note - to pass parameter as key, need to use square bracket syntax
-                        await write(textStyleKeyword(firstCaps(targetBuilding.name)) + " built.");
-                    } else {
-                        await write("You don't have enough resources to build a " + textStyleKeyword(firstCaps(targetBuilding.name)) + ".");
-                    }
-                }
-                
-            }
             else {
-                await write("You can't build that.");
+                await verbTryBuild(targetBuildingID);
             }
             break;
 
@@ -359,6 +344,10 @@ function stringArrayMatches(inputStringArray, referenceStringArray) {
     }
     
     return false;
+}
+
+function getAPreposition(string = "") {
+    return /^[aeiou]/i.test(string) ? "an" : "a";
 }
 
 async function parseInputText() {
@@ -557,6 +546,10 @@ async function commune() {
         return;
     }*/
 
+    if(game.buildingQueue != null) {
+        buildBuilding(game.buildingQueue);
+    }
+
     //updateResources();
     processAllJobResources();
     game.work.hasAssignedSelfThisTurn = 0;
@@ -691,18 +684,51 @@ async function skipIntro3()
 }
 
 //BUILDING FUNCTIONS
-function buildBuilding(_BuildingID)
-{
-    const building = getBuilding(_BuildingID)
+async function verbTryBuild(targetBuildingID) {
+    if(targetBuildingID != undefined) {
+        const targetBuilding = getBuilding(targetBuildingID);
+        if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] < 1) { //if target building has prereq buildings unbuilt
+            await writeEventString(`You need to build ${getAPreposition(getBuilding(targetBuilding.preReq).name)} ^${firstCaps(targetBuilding.preReq)}^ first.`);
+        } else {
+            if(targetBuilding.max != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) { //check if building is maxed
+                await writeEventString(`You can't build any more ^${firstCaps(targetBuilding.plural)}^ .`);
+            } else if (hasEnoughResources(targetBuilding.cost)) {
+                queueBuildBuilding(targetBuildingID); //note - to pass parameter as key, need to use square bracket syntax
+                assignSelfToJob(targetBuilding, construction = true);
+                await writeEventString(`You start construction of ${getAPreposition(targetBuilding.name)} ^${firstCaps(targetBuilding.name)}^ .`)
+            } else {
+                await writeEventString(`You don't have enough resources to build ${getAPreposition(targetBuilding.name)} ^${firstCaps(targetBuilding.name)}^ .`);
+            }
+        }
+    } else {
+        await writeAsHTML("You can't build that.");
+    }
+}
+
+function queueBuildBuilding(targetBuildingID) {
     for(const _ResourceType in game.resources) {
-        const resourceCost = Number(building.cost?.[_ResourceType] ?? 0);
+        const resourceCost = Number(building.cost[_ResourceType] ?? 0);
         resourceCostSubtraction(_ResourceType, resourceCost);
     }
+    if(game.buildingQueue != null) console.log(`Error: Building Queue is not empty.`);
+    game.buildingQueue = targetBuildingID;
+}
+
+async function buildBuilding(_BuildingID)
+{
+    const building = getBuilding(_BuildingID) ?? _BuildingID; //error handling if I accidentally pass a building obj instead of just the ID
 
     game.buildings[_BuildingID] += 1;
-
+    game.buildingQueue = null;
     updateResourceDisplay();
 
+    if(building.announceBuilt) {
+        if(checkIfBuildingHasMessage(_BuildingID, "onBuilt")) {
+            await printBuildingMessage(_BuildingID, "onBuilt");
+        } else {
+            await writeEventString(`^${firstCaps(building.name)}^ built.`);
+        }
+    }
     if(building.onBuildFunction) {
         building.onBuildFunction();
     }
@@ -752,15 +778,18 @@ function checkIfBuildingHasMessage(_BuildingID, messageID) {
 }
 
 //JOB FUNCTIONS
-async function assignSelfToJob(_BuildingID) {
+async function assignSelfToJob(_BuildingID, construction = false) {
     if(game.work.hasAssignedSelfThisTurn == 1) {
-        if(checkIfBuildingHasMessage(game.work.activeSelfJob, "onAlreadyWorking")) {
+        if(game.work.activeSelfJobConstruction != null) {
+            await writeAsHTML(`You are already busy building ${getAPreposition(getBuilding(activeSelfJobConstruction).name)} ^${firstCaps(getBuilding(activeSelfJobConstruction).name)}^.`)
+        }
+        else if(checkIfBuildingHasMessage(game.work.activeSelfJob, "onAlreadyWorking")) {
             await printBuildingMessage(game.work.activeSelfJob, "onAlreadyWorking");
         }
         else {
             await write("You are already working.");
         }
-    } else {
+    } else if(!construction) {
         if(getBuilding(_BuildingID).workable) {
             game.work.activeSelfJob = _BuildingID;
             game.work.hasAssignedSelfThisTurn = 1;
@@ -768,8 +797,12 @@ async function assignSelfToJob(_BuildingID) {
         } else {
             await write("You can't work that.");
         }
+    } else if(construction) {
+        //assume that building eligibility etc has already been checked
+        game.work.activeSelfJob = null;
+        game.work.activeSelfJobConstruction = _BuildingID;
+        game.work.hasAssignedSelfThisTurn = 1;
     }
-    
 }
 
 //RESOURCE FUNCTIONS
@@ -799,7 +832,7 @@ function processAllJobResources() {
     //process single self job building first
     if(game.work.activeSelfJob) {
         processBuildingResources(getBuilding(game.work.activeSelfJob), tempResources);
-        printBuildingMessage(game.work.activeSelfJob, "onSuccessfulWork");
+        printBuildingMessage(game.work.activeSelfJob, "onSuccessfulSelfWork");
     }
     
     
@@ -810,11 +843,20 @@ function processAllJobResources() {
 
 function processBuildingResources(building, resourceList) {
     if(!building.production) return;
+    let ctxRes = null;
+    if(!hasEnoughResources(resourceList, ctxRes, false)) {
+        buildingProductionNotEnoughResources(building, ctxRes);
+        return;
+    }
     massAddObjProps(resourceList, building.production);
     console.log(resourceList);
 }
 
-/*
+function buildingProductionNotEnoughResources(building, resource) {
+    console.log(`Not enough ${resource} to work ${building.name}`);
+}
+
+
 function resourceCostSubtraction(res, amount)
 {
     //two checks to validate that resources are valid numbers, if not set to 0
@@ -832,17 +874,29 @@ function resourceCostSubtraction(res, amount)
     //does not update display values at this point
 }
 
-function hasEnoughResources(resourceList)
+function hasEnoughResources(resourceList, ctxRes = null, subtract = true) //"subtract" means to take resources as a subtraction operation; set false for lists with -ve numbers already
 {
+    if(resourceList == null) return true; //if resourcelist invalid
+
     for (const _ResourceType in resourceList) {
+        if(_ResourceType == null) return true; //if no cost
+
         console.log(resourceList[_ResourceType] + " " + game.resources[_ResourceType]);
-        if (resourceList[_ResourceType] > game.resources[_ResourceType]) {
-            return false;
+        ctxRes = _ResourceType;
+        if(subtract) {
+            if (resourceList[_ResourceType] > game.resources[_ResourceType]) {
+                return false;
+            }
+        } else {
+            if (resourceList[_ResourceType] < game.resources[_ResourceType]) {
+                return false;
+            }
         }
+        
     }
     return true;
 }
-
+/*
 function updateResources()
 {
     var newResources = {};
