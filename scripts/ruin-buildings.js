@@ -87,9 +87,9 @@ const buildings = {
             onAlreadyWorking: L("You are already working the hearth."),
             onSuccessfulSelfWork: [
                 L("A chunk of flesh sizzles over the fire."),
-                L("You roast some flesh over the hearth."),
+                L("You roast a meaty rib over the hearth."),
                 L("You're not sure where this hunk of flesh is from, but you roast it anyway."),
-                L("You smoke some strips of flesh over the fire.")
+                L("You smoke a few strips of flesh over the fire.")
             ]
         },
         onBuildFunction: () => effectFns.effectEnableFleshConsumption(),

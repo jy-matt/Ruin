@@ -19,7 +19,7 @@ var resourceDisplay = {
     fervor: document.getElementById("num-resource-fervor"),
 }
 
-let communeLoadTimeMin = 5;
+let communeLoadTimeMin = 2;
 let communeLoadTimeVar = 5;
 
 //Text parsing variables
@@ -30,6 +30,7 @@ let restrictedCommandInput = "";
 let currentTextLength = 0;
 const punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 let timelineStack = [];
+const timelinePLimit = 50;
 
 let commandList = ["take", "work", "build", "gather", "divine"];
 
@@ -50,6 +51,12 @@ let game = {
         hasAssignedSelfThisTurn: 0,
         activeHandJobs: { },
         assignedHandsTotal: 0,
+    },
+    counters: {
+        starvation: 0,
+    },
+    stateFlags: {
+        isStarving: false,
     },
     eventFlags: { },
     buildingQueue: null,
@@ -94,11 +101,21 @@ function updateTimeline(string, { style = "regular", asHtml = false, alwaysScrol
         p.textContent = string;
     }
 
+    //remove paras if the timeline is too long
+    trimTimeline(timelinePLimit);
+
     const toScroll = isScrollPositionAtBottom();
     timeline.appendChild(p);
     if (toScroll || alwaysScroll) scrollToBottom(timeline);
 
     return p; //in case of future modification usage
+}
+
+//remove paras if the timeline is too long
+function trimTimeline(limit) {
+    while(timeline.children.length > limit) {
+        timeline.firstElementChild?.remove();
+    }
 }
 
 function isScrollPositionAtBottom() {
@@ -541,6 +558,17 @@ function getEvent(_EventID) {
     return events[_EventID];
 }
 
+async function playStarvationMessage() {
+    if(!game.stateFlags.isStarving) return; //should be checked already but extra sanity check
+
+    //To add escalating messages depending on starvation level
+    if(game.resources.hands == 0) { //sends hunger messages but check if player is alone first
+        await write("You hunger.", { style: "textstyle-warning" });
+    } else {
+        await write("Your people starve.", { style: "textstyle-warning" });
+    }
+}
+
 //COMMUNE / BIG BUTTON
 var loadBarEvent = new CustomEvent("loadBarEvent");
 
@@ -565,6 +593,7 @@ async function commune() {
     //updateResources();
     await processAllJobResources();
     await processFleshConsumption();
+    updateResourceDisplay();
     game.work.hasAssignedSelfThisTurn = 0;
     game.work.activeSelfJobConstruction = null;
    
@@ -643,7 +672,8 @@ async function startGame()
     deactivateInputBox();
     updateResourceDisplay();
 
-    console.log(`All game variables: ${game}`);
+    console.log(`All game variables: `);
+    console.log(game);
 
     buildBuilding("buildingGatherScrap");
 
@@ -848,7 +878,7 @@ async function assignSelfToJob(_BuildingID, constructionJob = false) { //This is
         game.work.activeSelfJobConstruction = _BuildingID;
         game.work.hasAssignedSelfThisTurn = 1;
     }
-    console.log(`Work Status ${game.work}`);
+    console.log(game.work);
 }
 
 //RESOURCE FUNCTIONS
@@ -856,6 +886,12 @@ function updateResourceDisplay()
 {
     for(const _ResourceType in game.resources) {
         resourceDisplay[_ResourceType].innerHTML = simplifyNumber(Math.floor(game.resources[_ResourceType]));
+    }
+
+    if(game.stateFlags.isStarving) {
+        resourceDisplay["flesh"].classList.add('resource-number-red');
+    } else {
+        resourceDisplay["flesh"].classList.remove('resource-number-red');
     }
 
 }
@@ -895,7 +931,8 @@ function processBuildingResources(building, resourceList) {
         return;
     }
     massAddObjProps(resourceList, building.production);
-    console.log(`Resources processed: ${resourceList}`);
+    console.log("Processed building resources.")
+    console.log(resourceList);
 }
 
 function buildingProductionNotEnoughResources(building, resource) {
@@ -906,7 +943,25 @@ async function processFleshConsumption() {
     if(!game.utilityFlags.fleshConsumptionEnabled) return;
 
     const fleshConsumption = game.resources["hands"] + 1;
+
+    if(fleshConsumption > game.resources["flesh"]) {
+        game.stateFlags.isStarving = true;
+        playStarvationMessage();
+    } else {
+        game.stateFlags.isStarving = false;
+    }
+
     resourceCostSubtraction("flesh", fleshConsumption);
+
+    if(game.stateFlags.isStarving) {
+        game.counters.starvation += 1;
+    } else if (game.counters.starvation > 0) {
+        game.counters.starvation -= 0.5;
+        if(game.counters.starvation <= 0) {
+            game.counters.starvation = 0;
+            await write("Hunger is but a distant memory now.")
+        }
+    }
 }
 
 

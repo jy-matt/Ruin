@@ -188,6 +188,11 @@ h1 {
     font-style: normal;
 }
 
+.timeline .textstyle-warning {
+    font-style: normal;
+    color: var(--color-accent4);
+}
+
 
 /* INLINE TEXT EMPHASIS STYLES <SPAN> */
 .timeline .textstyle-keyword-user {
@@ -214,6 +219,11 @@ h1 {
 .resource-number {
     font-weight: 700;
     color: var(--color-accent2);
+}
+
+.resource-number-red {
+    font-weight: 700;
+    color: var(--color-accent4);
 }
 
 .resource-label {
