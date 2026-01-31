@@ -30,6 +30,8 @@ const events = {
         }
     },
 
+    //MAIN QUEST EVENTS
+
     "intro.intro.01": {
         id: "intro.intro.01", //id
         eventType: "intro",
@@ -223,7 +225,18 @@ const events = {
             }
         }
     },
+
+
+    //GENERIC COMMUNE EVENTS
+
+
+
 };
+
+//Generic lines from ruin when no event is played
+const ruinLines = {
+
+}
 
 //Effect Functions
 const effectFns = {
@@ -239,6 +252,10 @@ const effectFns = {
 
     effectActivateCommuneButton: async () => {
         reloadButton();
+    },
+
+    effectEnableFleshConsumption: () => {
+        game.utilityFlags.fleshConsumptionEnabled = 1;
     },
 
     effectQueueEvent: async (eventID) => {

@@ -15,7 +15,7 @@ const buildings = {
         cost: {
             scrap: 1,
         },
-        notifyOnBuild: 0,
+        announceBuilt: false,
         onBuildFunction: () => playEvent("intro.intro.04")
     },
 
@@ -29,6 +29,7 @@ const buildings = {
         production: {
             scrap: 1
         },
+        announceBuilt: false,
         showInUI: false,
         messages: {
             onSelfWork: [
@@ -38,8 +39,9 @@ const buildings = {
             onAlreadyWorking: L("You are already gathering scrap."),
             onSuccessfulSelfWork: [
                 L("You find a pile of rough-cut stones, perfect for building."),
-                L("You chance upon an old shelter in the ruins and take it apart for wood."),
+                L("You chance upon an old campsite in the ruins and take it apart for scrap."),
                 L("You manage to scavenge some rotten planks and building material."),
+                L("You find the remains of an old expedition and salvage some equipment.")
             ]
         },
     },
@@ -78,14 +80,50 @@ const buildings = {
         messages: {
             onBuilt: L("A ring of stones, fragments of wood, a spark - your ^Hearth^ blazes to life."),
             onSelfWork: [
-                L("You search around for useful pieces of scrap."),
-                L("You check the tunnels for scraps of wood or stone.")
+                L("You head towards the hearth."),
+                L("You sit down at the hearth and begin preparing flesh."),
+                L("The hearth burns as you stoke the fire.")
             ],
-            onAlreadyWorking: L("You are already gathering scrap."),
+            onAlreadyWorking: L("You are already working the hearth."),
             onSuccessfulSelfWork: [
-                L("You find a pile of rough-cut stones, perfect for building."),
-                L("You chance upon an old shelter in the ruins and take it apart for wood."),
-                L("You manage to scavenge some rotten planks and building material."),
+                L("A chunk of flesh sizzles over the fire."),
+                L("You roast some flesh over the hearth."),
+                L("You're not sure where this hunk of flesh is from, but you roast it anyway."),
+                L("You smoke some strips of flesh over the fire.")
+            ]
+        },
+        onBuildFunction: () => effectFns.effectEnableFleshConsumption(),
+    },
+
+    "buildingCrusher": {
+        name: "crusher",
+        plural: "crushers",
+        description: "",
+        max: 1,
+        workable: 1,
+        production: {
+            scrap: 2
+        },
+        cost: {
+            scrap: 5,
+        },
+        showInUI: true,
+        announceBuilt: true,
+        messages: {
+            onBuilt: L("A simple yet powerful mechanism of stone and metal, the ^Crusher^ lets you turn more things into scrap."),
+            onSelfWork: [
+                L("It's crushing time."),
+                L("You drag a large hunk of metal towards the crusher."),
+                L("The crusher yawns in anticipation."),
+                L("You head towards the crusher."),
+                L("A pile of debris sits in front of the crusher, waiting.")
+            ],
+            onAlreadyWorking: L("You are already working the crusher."),
+            onSuccessfulSelfWork: [
+                L("You stack the newly crushed scraps near the stockpile."),
+                L("The crusher has done well today."),
+                L("Scraps of metal and stone are all that remain of the salvage."),
+                L("Your hands are covered in scrapes and cuts, but the crusher's work is done.")
             ]
         },
     }

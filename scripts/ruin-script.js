@@ -31,7 +31,7 @@ let currentTextLength = 0;
 const punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 let timelineStack = [];
 
-let commandList = ["pray", "study", "eat", "light", "take", "examine", "build", "gather", "divine"];
+let commandList = ["take", "work", "build", "gather", "divine"];
 
 //Gamestate
 let game = {
@@ -57,6 +57,7 @@ let game = {
     communeEventQueue: [],
     utilityFlags: {
         communeEventQueueEnabled: 1,
+        fleshConsumptionEnabled: 0,
     },
 };
 
@@ -136,8 +137,8 @@ async function write(text, { style = "regular", delayCycles = 0, asHtml = false,
     allowInput = true;
 }
 
-async function writeAsHTML(text, opts = {}) {
-    return write(text, {...opts, asHTML: true});
+function writeAsHTML(text, opts = {}) {
+    return write(text, {...opts, asHtml: true});
 }
 
 
@@ -145,10 +146,11 @@ async function writeAsHTML(text, opts = {}) {
 
 async function textCommand(verb, object) {
 
+    let targetBuildingID = getBuildingID(object[0]);
+
     switch(verb) {
         //BUILD
         case "build":
-            let targetBuildingID = buildingDict[object[0]];
 
             if (object[0] == undefined) { //if there is no target
                 await write("What do you want to build?");
@@ -168,7 +170,8 @@ async function textCommand(verb, object) {
                 restrictedCommandInput = "gather";
             }
             else if (object[0] == "scrap" || stringArrayMatches(object, ["fragment", "fragments", "stone", "stones", "scraps"])) {
-                assignSelfToJob("buildingGatherScrap");
+                await verbTryWork("buildingGatherScrap");
+                //assignSelfToJob("buildingGatherScrap");
             }
             else if (targetResource != undefined) {
                 if (targetResource.preReq != undefined && buildings[targetResource.preReq] <= 0) {
@@ -188,6 +191,9 @@ async function textCommand(verb, object) {
             if (object[0] == undefined) {
                 await write("What do you want to work?");
                 restrictedCommandInput = "work";
+            }
+            else {
+                await verbTryWork(targetBuildingID);
             }
 
             break;
@@ -225,17 +231,18 @@ async function textCommand(verb, object) {
         //CHEATS
         case "divine":
             if (object[0] == "village") {
-                buildBuilding(buildingDict.shrine);
-                buildBuilding(buildingDict.lumberyard);
-                buildBuilding(buildingDict.lumbermill);
-                buildBuilding(buildingDict.quarry);
-                buildBuilding(buildingDict.stonecutter);
-                buildBuilding(buildingDict.storehouse);
-                buildBuilding(buildingDict.farm);
-                await write("With a flurry of light, buildings rise around you.", { style: "textstyle-ruin" });
+                buildBuilding("buildingScrapForge");
+                buildBuilding("buildingHearth");
+                await write("RAISE THE EARTH.", { style: "textstyle-ruin" });
+            }
+            else if(object[0] == "providence") {
+                addResource("scrap", 20);
+                addResource("flesh", 20);
+                addResource("script", 20);
+                await write("YOU SHALL NOT WANT.", { style: "textstyle-ruin" });
             }
             else {
-                await write("A bright glow engulfs you briefly, then fizzles out.", { style: "textstyle-ruin" });
+                await write("A BLESSING, THEN.", { style: "textstyle-ruin" });
             }
             break;
 
@@ -268,10 +275,10 @@ function fadeText() {
     }
 }
 
-inputbox.addEventListener("keyup", function (event) {
+inputbox.addEventListener("keyup", async (event) => {
     event.preventDefault();
     if (event.code === "Enter" && allowInput == true) {
-        parseInputText();
+        await parseInputText();
         //updateTimeline(currentTextString, "regular");
         inputbox.value = "";
     }
@@ -367,6 +374,11 @@ async function parseInputText() {
     if (keyword_index > -1) {
         await textCommand(command, followingWords(cleanedString));
         console.log(command, followingWords(cleanedString));
+    } else if(currentString == "") {
+        if (squareButton.loaded == true && allowInput) {
+            unloadButton();
+            await commune();
+        }
     } else {
         updateTimeline(currentString, "textstyle-ruin");
     }
@@ -520,9 +532,9 @@ function eventPlayed(_EventID) {
     return game.eventFlags[_EventID];
 }
 
-async function queueCommuneEvent(_EventID) {
+function queueCommuneEvent(_EventID) {
     game.communeEventQueue.unshift(_EventID);
-    console.log(game.communeEventQueue);
+    console.log(`Event queued. Current event queue: ${game.communeEventQueue}`);
 }
 
 function getEvent(_EventID) {
@@ -547,30 +559,33 @@ async function commune() {
     }*/
 
     if(game.buildingQueue != null) {
-        buildBuilding(game.buildingQueue);
+        await buildBuilding(game.buildingQueue);
     }
 
     //updateResources();
-    processAllJobResources();
+    await processAllJobResources();
+    await processFleshConsumption();
     game.work.hasAssignedSelfThisTurn = 0;
+    game.work.activeSelfJobConstruction = null;
    
     //Event Logic
     if(game.utilityFlags.communeEventQueueEnabled && game.communeEventQueue[0] != null) {
         const eventID = game.communeEventQueue.shift();
         const reloadTime = events[eventID].communeReloadTime ?? communeLoadTimeMin;
-        playEvent(eventID);
+        await playEvent(eventID);
         reloadButton(reloadTime);
         return;
     }
 
     reloadButton(communeLoadTimeMin);
+    inputbox.focus();
     
 
     return;
 }
 
 // cosmetic and mechanical functions to handle button loading and unloading
-async function reloadButton(seconds = communeLoadTimeMin) {
+function reloadButton(seconds = communeLoadTimeMin) {
 
     //sets the selected bar to load for n seconds
     var op = 0;
@@ -595,7 +610,7 @@ async function reloadButton(seconds = communeLoadTimeMin) {
     }
 }
 
-async function unloadButton() {
+function unloadButton() {
     squareButton.classList.remove("clickable");
     squareButton.loaded = false;
     squareButton.style.opacity = 0;
@@ -624,10 +639,18 @@ async function startGame()
 {
     populateEventFlags();
     populateBuildingDictAndFlags();
-    console.log(game.eventFlags);
+    
     deactivateInputBox();
-    skipIntro3(); return; //skips the long narrative intro. comment to deactivate
+    updateResourceDisplay();
+
+    console.log(`All game variables: ${game}`);
+
+    buildBuilding("buildingGatherScrap");
+
+    await skipIntro3(); return; //skips the long narrative intro. comment to deactivate
     playEvent("intro.intro.01"); //proper game start
+
+    
 }
 
 async function skipIntro()
@@ -684,41 +707,52 @@ async function skipIntro3()
 }
 
 //BUILDING FUNCTIONS
-async function verbTryBuild(targetBuildingID) {
-    if(targetBuildingID != undefined) {
-        const targetBuilding = getBuilding(targetBuildingID);
-        if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] < 1) { //if target building has prereq buildings unbuilt
+async function verbTryBuild(_BuildingID) {
+    if(_BuildingID != undefined) {
+        const targetBuilding = getBuilding(_BuildingID);
+        if(game.work.hasAssignedSelfThisTurn == 1) {
+            if(game.work.activeSelfJobConstruction != null) {
+                await writeEventString(`You are already busy building ${getAPreposition(getBuilding(game.work.activeSelfJobConstruction).name)} ^${firstCaps(getBuilding(game.work.activeSelfJobConstruction).name)}^.`)
+            }
+            else if(checkIfBuildingHasMessage(game.work.activeSelfJob, "onAlreadyWorking")) {
+                await printBuildingMessage(game.work.activeSelfJob, "onAlreadyWorking");
+            }
+            else {
+                await write("You are already working.");
+            }
+        } else if (targetBuilding.preReq != undefined && game.buildings[targetBuilding.preReq] < 1) { //if target building has prereq buildings unbuilt
             await writeEventString(`You need to build ${getAPreposition(getBuilding(targetBuilding.preReq).name)} ^${firstCaps(targetBuilding.preReq)}^ first.`);
         } else {
-            if(targetBuilding.max != undefined && game.buildings[targetBuilding.name] >= targetBuilding.quota) { //check if building is maxed
-                await writeEventString(`You can't build any more ^${firstCaps(targetBuilding.plural)}^ .`);
+            if(targetBuilding.max != null && game.buildings[_BuildingID] >= targetBuilding.max) { //check if building is maxed
+                await writeEventString(`You can't build any more ^${firstCaps(targetBuilding.plural)}^.`);
             } else if (hasEnoughResources(targetBuilding.cost)) {
-                queueBuildBuilding(targetBuildingID); //note - to pass parameter as key, need to use square bracket syntax
-                assignSelfToJob(targetBuilding, construction = true);
-                await writeEventString(`You start construction of ${getAPreposition(targetBuilding.name)} ^${firstCaps(targetBuilding.name)}^ .`)
+                queueBuildBuilding(_BuildingID); //note - to pass parameter as key, need to use square bracket syntax
+                await assignSelfToJob(_BuildingID, constructionJob = true);
+                await writeEventString(`You start construction of ${getAPreposition(targetBuilding.name)} ^${firstCaps(targetBuilding.name)}^.`)
             } else {
-                await writeEventString(`You don't have enough resources to build ${getAPreposition(targetBuilding.name)} ^${firstCaps(targetBuilding.name)}^ .`);
+                await writeEventString(`You don't have enough resources to build ${getAPreposition(targetBuilding.name)} ^${firstCaps(targetBuilding.name)}^.`);
             }
         }
     } else {
-        await writeAsHTML("You can't build that.");
+        await write("You can't build that.");
     }
 }
 
-function queueBuildBuilding(targetBuildingID) {
+function queueBuildBuilding(_BuildingID) {
     for(const _ResourceType in game.resources) {
+        const building = getBuilding(_BuildingID);
         const resourceCost = Number(building.cost[_ResourceType] ?? 0);
         resourceCostSubtraction(_ResourceType, resourceCost);
     }
     if(game.buildingQueue != null) console.log(`Error: Building Queue is not empty.`);
-    game.buildingQueue = targetBuildingID;
+    game.buildingQueue = _BuildingID;
 }
 
 async function buildBuilding(_BuildingID)
 {
     const building = getBuilding(_BuildingID) ?? _BuildingID; //error handling if I accidentally pass a building obj instead of just the ID
 
-    game.buildings[_BuildingID] += 1;
+    game.buildings[_BuildingID] = (game.buildings[_BuildingID] ?? 0) + 1;
     game.buildingQueue = null;
     updateResourceDisplay();
 
@@ -777,11 +811,16 @@ function checkIfBuildingHasMessage(_BuildingID, messageID) {
     return !!getBuilding(_BuildingID)?.messages?.[messageID];
 }
 
+function checkIfBuildingIsBuilt(_BuildingID) {
+    if(game.buildings[_BuildingID] > 0) return true;
+    return false;
+}
+
 //JOB FUNCTIONS
-async function assignSelfToJob(_BuildingID, construction = false) {
+async function verbTryWork(_BuildingID) { //This is the try verb function; all logic should be in here
     if(game.work.hasAssignedSelfThisTurn == 1) {
         if(game.work.activeSelfJobConstruction != null) {
-            await writeAsHTML(`You are already busy building ${getAPreposition(getBuilding(activeSelfJobConstruction).name)} ^${firstCaps(getBuilding(activeSelfJobConstruction).name)}^.`)
+            await writeEventString(`You are already busy building ${getAPreposition(getBuilding(game.work.activeSelfJobConstruction).name)} ^${firstCaps(getBuilding(game.work.activeSelfJobConstruction).name)}^.`)
         }
         else if(checkIfBuildingHasMessage(game.work.activeSelfJob, "onAlreadyWorking")) {
             await printBuildingMessage(game.work.activeSelfJob, "onAlreadyWorking");
@@ -789,20 +828,27 @@ async function assignSelfToJob(_BuildingID, construction = false) {
         else {
             await write("You are already working.");
         }
-    } else if(!construction) {
-        if(getBuilding(_BuildingID).workable) {
-            game.work.activeSelfJob = _BuildingID;
-            game.work.hasAssignedSelfThisTurn = 1;
-            await printBuildingMessage(_BuildingID, "onSelfWork");
-        } else {
-            await write("You can't work that.");
-        }
-    } else if(construction) {
+    } else if(!checkIfBuildingIsBuilt(_BuildingID)) {
+        await write("You can't work that.");
+    } else if(getBuilding(_BuildingID).workable) {
+        await assignSelfToJob(_BuildingID);
+        await printBuildingMessage(_BuildingID, "onSelfWork");
+    } else {
+        await write("You can't work that.")
+    }
+}
+
+async function assignSelfToJob(_BuildingID, constructionJob = false) { //This is just the job-assignment handler; also has a "constructionJob" mode
+    if(!constructionJob) {
+        game.work.activeSelfJob = _BuildingID;
+        game.work.hasAssignedSelfThisTurn = 1;
+    } else if(constructionJob) {
         //assume that building eligibility etc has already been checked
         game.work.activeSelfJob = null;
         game.work.activeSelfJobConstruction = _BuildingID;
         game.work.hasAssignedSelfThisTurn = 1;
     }
+    console.log(`Work Status ${game.work}`);
 }
 
 //RESOURCE FUNCTIONS
@@ -827,12 +873,12 @@ function addResource(res, amount)
     updateResourceDisplay();
 }
 
-function processAllJobResources() {
+async function processAllJobResources() {
     const tempResources = {};
     //process single self job building first
     if(game.work.activeSelfJob) {
         processBuildingResources(getBuilding(game.work.activeSelfJob), tempResources);
-        printBuildingMessage(game.work.activeSelfJob, "onSuccessfulSelfWork");
+        await printBuildingMessage(game.work.activeSelfJob, "onSuccessfulSelfWork");
     }
     
     
@@ -849,11 +895,18 @@ function processBuildingResources(building, resourceList) {
         return;
     }
     massAddObjProps(resourceList, building.production);
-    console.log(resourceList);
+    console.log(`Resources processed: ${resourceList}`);
 }
 
 function buildingProductionNotEnoughResources(building, resource) {
     console.log(`Not enough ${resource} to work ${building.name}`);
+}
+
+async function processFleshConsumption() {
+    if(!game.utilityFlags.fleshConsumptionEnabled) return;
+
+    const fleshConsumption = game.resources["hands"] + 1;
+    resourceCostSubtraction("flesh", fleshConsumption);
 }
 
 
@@ -881,7 +934,7 @@ function hasEnoughResources(resourceList, ctxRes = null, subtract = true) //"sub
     for (const _ResourceType in resourceList) {
         if(_ResourceType == null) return true; //if no cost
 
-        console.log(resourceList[_ResourceType] + " " + game.resources[_ResourceType]);
+        console.log(`Comparing ${_ResourceType} (${game.resources[_ResourceType]}) to cost (${resourceList[_ResourceType]})`);
         ctxRes = _ResourceType;
         if(subtract) {
             if (resourceList[_ResourceType] > game.resources[_ResourceType]) {
@@ -962,8 +1015,5 @@ function wait(ms) {
 //--------------------------------
 //loadBar(squareButton, 0);
 squareButton.autoload = false;
-
-
-updateResourceDisplay();
 
 startGame();
